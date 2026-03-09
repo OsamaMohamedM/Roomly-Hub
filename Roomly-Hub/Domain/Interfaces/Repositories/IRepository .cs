@@ -1,19 +1,19 @@
-﻿namespace Domain.Interfaces.Repositories
+﻿using Domain.Entities;
+
+namespace Domain.Interfaces.Repositories
 {
-    internal interface IRepository<T> : IDisposable where T : class
+    public interface IRepository<T> where T : BaseEntity
     {
-        T GetAsync(int id);
+        Task<T?> GetByIdAsync(Guid id);
 
-        IEnumerable<T> GetAllAsync();
+        Task<IEnumerable<T>> GetAllAsync();
 
-        void AddAsync(T entity);
+        Task AddAsync(T entity);
 
-        void UpdateAsync(T entity);
+        void Update(T entity);
 
-        void DeleteByIdAsync(int id);
+        void Delete(T entity);
 
-        void DeleteAllAsync();
-
-        void SaveChangesAsync();
+        Task<int> SaveChangesAsync();
     }
 }
