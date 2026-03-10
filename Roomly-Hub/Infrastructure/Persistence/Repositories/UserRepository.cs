@@ -7,13 +7,11 @@ namespace Infrastructure.Persistence.Repositories
 {
     public class UserRepository : IUserRepository
     {
-        private readonly AppDbContext _context;
         private readonly DbSet<User> _dbSet;
 
         public UserRepository(AppDbContext context)
         {
-            _context = context;
-            _dbSet = _context.Set<User>();
+            _dbSet = context.Set<User>();
         }
 
         public async Task<User?> GetByIdAsync(Guid id)

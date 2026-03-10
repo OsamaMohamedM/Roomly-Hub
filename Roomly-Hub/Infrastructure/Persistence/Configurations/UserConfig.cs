@@ -84,6 +84,11 @@ namespace Infrastructure.Persistence.Configurations
                 .WithOne()
                 .HasForeignKey(ks => ks.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasMany(u => u.Otp)
+                .WithOne()
+                .HasForeignKey(o => o.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

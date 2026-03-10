@@ -33,6 +33,8 @@ namespace Domain.Entities
 
         private readonly List<KycSubmission> _kycSubmissions = new();
         public IReadOnlyCollection<KycSubmission> KycSubmissions => _kycSubmissions.AsReadOnly();
+        private readonly List<Otp> _Otps = new();
+        public IReadOnlyCollection<Otp> Otp => _Otps.AsReadOnly();
 
         private User()
         { }
@@ -328,6 +330,15 @@ namespace Domain.Entities
         public bool IsInRole(UserRole role)
         {
             return Role == role || Role == UserRole.Both;
+        }
+
+        public void AddOtp(Otp otp)
+        {
+            if (otp is null)
+                throw new ArgumentNullException(nameof(otp));
+            if (otp.UserId != Id)
+                throw new InvalidOperationException("OTP does not belong to this user.");
+            _Otps.Add(otp);
         }
     }
 }
