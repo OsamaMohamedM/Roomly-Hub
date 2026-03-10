@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence
 {
@@ -12,6 +13,23 @@ namespace Infrastructure.Persistence
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+                {
+                    modelBuilder.Entity(entityType.ClrType)
+                        .Property("IsDeleted")
+                        .HasDefaultValue(false);
+                    modelBuilder.Entity(entityType.ClrType)
+                        .Property("CreatedAt")
+                        .HasDefaultValueSql("GETUTCDATE()");
+                    modelBuilder.Entity(entityType.ClrType)
+                        .Property("UpdatedAt")
+                        .HasDefaultValueSql("GETUTCDATE()");
+                    modelBuilder.Entity(entityType.ClrType).HasKey("Id");
+                }
+            }
         }
     }
 }
