@@ -31,7 +31,11 @@ builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddScoped<IRegisterService, RegisterService>();
+builder.Services.AddScoped<ILoginService, LoginService>();
+builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
