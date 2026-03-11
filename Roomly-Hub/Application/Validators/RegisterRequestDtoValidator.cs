@@ -1,11 +1,11 @@
-﻿using Application.DTOs;
+using Application.DTOs;
 using FluentValidation;
 
 namespace Application.Validators
 {
-    public class RegisterRequestValidator : AbstractValidator<RegisterRequestDto>
+    public class RegisterRequestDtoValidator : AbstractValidator<RegisterRequestDto>
     {
-        public RegisterRequestValidator()
+        public RegisterRequestDtoValidator()
         {
             RuleFor(x => x.Email)
                 .NotEmpty().WithMessage("Email is required.")

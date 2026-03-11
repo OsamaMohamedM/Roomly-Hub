@@ -85,7 +85,7 @@ namespace Infrastructure.Persistence.Configurations
                 .HasForeignKey(ks => ks.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            builder.HasMany(u => u.Otp)
+            builder.HasMany(u => u.Otps)
                 .WithOne()
                 .HasForeignKey(o => o.UserId)
                 .OnDelete(DeleteBehavior.Cascade);

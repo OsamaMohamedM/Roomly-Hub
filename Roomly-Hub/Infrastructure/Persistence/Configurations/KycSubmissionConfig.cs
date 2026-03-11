@@ -44,7 +44,8 @@ namespace Infrastructure.Persistence.Configurations
                 .IsRequired()
                 .HasConversion<string>()
                 .HasColumnType("varchar(20)")
-                .HasDefaultValue(SubmissionStatus.Pending);
+                .HasDefaultValue(SubmissionStatus.Pending)
+                .HasSentinel(SubmissionStatus.NotSubmitted);
 
             builder.Property(k => k.RejectionReason)
                 .HasMaxLength(500);

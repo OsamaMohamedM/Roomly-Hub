@@ -46,20 +46,11 @@ namespace Domain.Entities
             };
         }
 
-        public bool IsExpired()
-        {
-            return DateTime.UtcNow > ExpiresAt;
-        }
+        public bool IsExpired() => DateTime.UtcNow > ExpiresAt;
 
-        public bool IsUsed()
-        {
-            return UsedAt.HasValue;
-        }
+        public bool IsUsed() => UsedAt.HasValue;
 
-        public bool IsValid()
-        {
-            return !IsExpired() && !IsUsed();
-        }
+        public bool IsValid() => !IsExpired() && !IsUsed();
 
         public void MarkAsUsed()
         {
@@ -70,6 +61,15 @@ namespace Domain.Entities
                 throw new InvalidOperationException("OTP has expired.");
 
             UsedAt = DateTime.UtcNow;
+            MarkUpdated();
+        }
+
+        public void Invalidate()
+        {
+            if (IsUsed() || IsExpired())
+                return;
+
+            ExpiresAt = DateTime.UtcNow.AddSeconds(-1);
             MarkUpdated();
         }
     }

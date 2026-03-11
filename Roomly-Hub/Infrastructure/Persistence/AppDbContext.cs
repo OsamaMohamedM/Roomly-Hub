@@ -23,13 +23,18 @@ namespace Infrastructure.Persistence
                         .HasDefaultValue(false);
                     modelBuilder.Entity(entityType.ClrType)
                         .Property("CreatedAt")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasDefaultValueSql("NOW()");
                     modelBuilder.Entity(entityType.ClrType)
                         .Property("UpdatedAt")
-                        .HasDefaultValueSql("GETUTCDATE()");
+                        .HasDefaultValueSql("NOW()");
                     modelBuilder.Entity(entityType.ClrType).HasKey("Id");
                 }
             }
         }
+
+        public DbSet<User> Users { get; set; }
+        public DbSet<KycSubmission> kycSubmissions { get; set; }
+
+        public DbSet<Otp> Otps { get; set; }
     }
 }
