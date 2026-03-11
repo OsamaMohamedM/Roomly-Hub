@@ -1,4 +1,4 @@
-﻿using Application.DTOs;
+using Application.DTOs;
 using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
@@ -13,17 +13,20 @@ namespace Roomly_Hub.Controllers
         private readonly ILoginService _loginService;
         private readonly IEmailVerificationService _emailVerificationService;
         private readonly IRefreshTokenService _refreshTokenService;
+        private readonly IGoogleLoginService _googleLoginService;
 
         public AuthController(
             IRegisterService registerService,
             ILoginService loginService,
             IEmailVerificationService emailVerificationService,
-            IRefreshTokenService refreshTokenService)
+            IRefreshTokenService refreshTokenService,
+            IGoogleLoginService googleLoginService)
         {
             _registerService = registerService;
             _loginService = loginService;
             _emailVerificationService = emailVerificationService;
             _refreshTokenService = refreshTokenService;
+            _googleLoginService = googleLoginService;
         }
 
         [HttpPost("register")]
@@ -98,6 +101,27 @@ namespace Roomly_Hub.Controllers
                 {
                     "VALIDATION_ERROR" => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
                     "INVALID_REFRESH_TOKEN" => Unauthorized(CreateProblemDetails(result, StatusCodes.Status401Unauthorized, "Invalid token")),
+                    "ACCOUNT_INACTIVE" => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Account inactive")),
+                    "ACCOUNT_LOCKED" => StatusCode(StatusCodes.Status423Locked, CreateProblemDetails(result, StatusCodes.Status423Locked, "Account locked")),
+                    _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
+        [HttpPost("google")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthRequestDto requestDto, CancellationToken cancellationToken)
+        {
+            var result = await _googleLoginService.LoginWithGoogleAsync(requestDto, cancellationToken);
+
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    "VALIDATION_ERROR" => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    "INVALID_GOOGLE_TOKEN" => Unauthorized(CreateProblemDetails(result, StatusCodes.Status401Unauthorized, "Invalid Google token")),
+                    "EMAIL_NOT_VERIFIED" => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Email not verified")),
                     "ACCOUNT_INACTIVE" => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Account inactive")),
                     "ACCOUNT_LOCKED" => StatusCode(StatusCodes.Status423Locked, CreateProblemDetails(result, StatusCodes.Status423Locked, "Account locked")),
                     _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))

@@ -52,6 +52,23 @@ namespace Infrastructure.Repositories
                     cancellationToken);
         }
 
+        public async Task<User?> GetByExternalLoginAsync(string provider, string externalId, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Include(u => u.ExternalLogins)
+                .FirstOrDefaultAsync(
+                    u => u.ExternalLogins.Any(el => el.Provider == provider && el.ExternalId == externalId)
+                         && !u.IsDeleted,
+                    cancellationToken);
+        }
+
+        public async Task<User?> GetByEmailWithExternalLoginsAsync(Email email, CancellationToken cancellationToken = default)
+        {
+            return await _dbSet
+                .Include(u => u.ExternalLogins)
+                .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
+        }
+
         public async Task AddAsync(User user, CancellationToken cancellationToken = default)
         {
             await _dbSet.AddAsync(user, cancellationToken);

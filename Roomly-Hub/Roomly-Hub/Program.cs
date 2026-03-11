@@ -24,11 +24,13 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestDtoValidator
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
+builder.Services.Configure<GoogleSettings>(builder.Configuration.GetSection(GoogleSettings.SectionName));
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IHasher, BCryptHasher>();
 builder.Services.AddScoped<IOtpService, OtpService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
@@ -36,6 +38,7 @@ builder.Services.AddScoped<IRegisterService, RegisterService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
 builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+builder.Services.AddScoped<IGoogleLoginService, GoogleLoginService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();

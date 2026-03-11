@@ -65,6 +65,32 @@ namespace Domain.Entities
             };
         }
 
+        public static User CreateFromExternalLogin(string name, Email email, string passwordHash, UserRole role = UserRole.Guest)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Name is required.", nameof(name));
+
+            if (email is null)
+                throw new ArgumentNullException(nameof(email));
+
+            if (string.IsNullOrWhiteSpace(passwordHash))
+                throw new ArgumentException("Password hash is required.", nameof(passwordHash));
+
+            return new User
+            {
+                Name = name.Trim(),
+                Email = email,
+                PasswordHash = passwordHash,
+                Role = role,
+                IsActive = true,
+                EmailVerified = true,
+                KycStatus = SubmissionStatus.NotSubmitted,
+                KycAttemptCount = 0,
+                LoginFailCount = 0,
+                IsLocked = false
+            };
+        }
+
         public void SetPasswordHash(string hash)
         {
             if (string.IsNullOrWhiteSpace(hash))
