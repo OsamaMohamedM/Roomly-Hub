@@ -41,6 +41,7 @@ builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>(
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IGoogleLoginService, GoogleLoginService>();
 builder.Services.AddScoped<IKycService, KycService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
