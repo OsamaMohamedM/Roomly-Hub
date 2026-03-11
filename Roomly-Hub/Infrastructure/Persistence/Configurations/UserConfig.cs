@@ -1,12 +1,13 @@
 ﻿using Domain.Entities;
 using Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Persistence.Configurations
 {
     internal class UserConfig : IEntityTypeConfiguration<User>
     {
-        public void Configure(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<User> builder)
+        public void Configure(EntityTypeBuilder<User> builder)
         {
             builder.ToTable("Users");
 
@@ -62,14 +63,7 @@ namespace Infrastructure.Persistence.Configurations
             builder.HasIndex(u => u.LockoutToken)
                 .IsUnique();
 
-            builder.Property(u => u.EmailVerified).HasDefaultValue(false);
-            builder.Property(u => u.IsActive).HasDefaultValue(true);
-            builder.Property(u => u.IsLocked).HasDefaultValue(false);
-            builder.Property(u => u.LoginFailCount).HasDefaultValue(0);
-            builder.Property(u => u.KycAttemptCount).HasDefaultValue(0);
-            builder.Property(u => u.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            builder.Property(u => u.UpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-
+            // Relationships — all use backing-field collections
             builder.HasMany(u => u.RefreshTokens)
                 .WithOne()
                 .HasForeignKey(rt => rt.UserId)
@@ -89,6 +83,15 @@ namespace Infrastructure.Persistence.Configurations
                 .WithOne()
                 .HasForeignKey(o => o.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Navigation(u => u.RefreshTokens)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+            builder.Navigation(u => u.ExternalLogins)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+            builder.Navigation(u => u.KycSubmissions)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+            builder.Navigation(u => u.Otps)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
         }
     }
 }

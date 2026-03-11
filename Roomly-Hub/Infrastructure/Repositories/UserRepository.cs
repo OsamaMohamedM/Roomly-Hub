@@ -8,44 +8,43 @@ namespace Infrastructure.Repositories
 {
     public class UserRepository : IUserRepository
     {
-        private readonly DbSet<User> _dbSet;
         private readonly AppDbContext _context;
 
         public UserRepository(AppDbContext context)
         {
             _context = context;
-            _dbSet = context.Set<User>();
         }
 
         public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            return await _dbSet
+            return await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
         }
 
         public async Task<User?> GetByEmailAsync(Email email, CancellationToken cancellationToken = default)
         {
-            return await _dbSet
+            return await _context.Users
+                .Include(u => u.RefreshTokens)
                 .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
         }
 
         public async Task<User?> GetByIdWithOtpsAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            return await _dbSet
+            return await _context.Users
                 .Include(u => u.Otps)
                 .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted, cancellationToken);
         }
 
         public async Task<User?> GetByEmailWithOtpsAsync(Email email, CancellationToken cancellationToken = default)
         {
-            return await _dbSet
+            return await _context.Users
                 .Include(u => u.Otps)
                 .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
         }
 
         public async Task<User?> GetByRefreshTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
         {
-            return await _dbSet
+            return await _context.Users
                 .Include(u => u.RefreshTokens)
                 .FirstOrDefaultAsync(
                     u => u.RefreshTokens.Any(rt => rt.TokenHash == tokenHash) && !u.IsDeleted,
@@ -54,7 +53,7 @@ namespace Infrastructure.Repositories
 
         public async Task<User?> GetByExternalLoginAsync(string provider, string externalId, CancellationToken cancellationToken = default)
         {
-            return await _dbSet
+            return await _context.Users
                 .Include(u => u.ExternalLogins)
                 .FirstOrDefaultAsync(
                     u => u.ExternalLogins.Any(el => el.Provider == provider && el.ExternalId == externalId)
@@ -64,26 +63,14 @@ namespace Infrastructure.Repositories
 
         public async Task<User?> GetByEmailWithExternalLoginsAsync(Email email, CancellationToken cancellationToken = default)
         {
-            return await _dbSet
+            return await _context.Users
                 .Include(u => u.ExternalLogins)
                 .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
         }
 
         public async Task AddAsync(User user, CancellationToken cancellationToken = default)
         {
-            await _dbSet.AddAsync(user, cancellationToken);
-        }
-
-        public void Update(User user)
-        {
-            user.MarkUpdated();
-            _dbSet.Update(user);
-        }
-
-        public void Delete(User user)
-        {
-            user.SoftDelete();
-            _dbSet.Update(user);
+            await _context.Users.AddAsync(user, cancellationToken);
         }
     }
 }

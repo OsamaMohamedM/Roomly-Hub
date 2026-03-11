@@ -19,22 +19,21 @@ namespace Infrastructure.Persistence
                 if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
                 {
                     modelBuilder.Entity(entityType.ClrType)
-                        .Property("IsDeleted")
-                        .HasDefaultValue(false);
-                    modelBuilder.Entity(entityType.ClrType)
                         .Property("CreatedAt")
                         .HasDefaultValueSql("NOW()");
-                    modelBuilder.Entity(entityType.ClrType)
-                        .Property("UpdatedAt")
-                        .HasDefaultValueSql("NOW()");
+
                     modelBuilder.Entity(entityType.ClrType).HasKey("Id");
+                    modelBuilder.Entity(entityType.ClrType)
+            .Property("Id")
+            .ValueGeneratedNever();
                 }
             }
         }
 
         public DbSet<User> Users { get; set; }
-        public DbSet<KycSubmission> kycSubmissions { get; set; }
-
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Otp> Otps { get; set; }
+        public DbSet<KycSubmission> KycSubmissions { get; set; }
+        public DbSet<UserExternalLogin> UserExternalLogins { get; set; }
     }
 }

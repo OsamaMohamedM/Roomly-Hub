@@ -94,7 +94,6 @@ namespace Application.Services
             if (otpResult.IsFailure)
                 return Result<RegisterResponseDto>.Failure(otpResult.ErrorCode!, otpResult.ErrorMessage!);
 
-            _userRepository.Update(user);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return Result<RegisterResponseDto>.Success(

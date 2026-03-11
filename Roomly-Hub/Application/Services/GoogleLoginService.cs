@@ -104,6 +104,8 @@ namespace Application.Services
             if (user.IsLocked)
                 return Result<LoginResponseDto>.Failure("ACCOUNT_LOCKED", "Your account is locked. Please contact support.");
 
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
             var accessToken = await _tokenService.GenerateAccessToken(user);
             var refreshTokenString = await _tokenService.GenerateRefreshTokenAsync();
 
@@ -111,9 +113,6 @@ namespace Application.Services
                 user.Id,
                 _hasher.HashToken(refreshTokenString),
                 DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)));
-
-            if (!isNewUser)
-                _userRepository.Update(user);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 

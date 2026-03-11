@@ -57,7 +57,6 @@ namespace Application.Services
 
             matchedOtp.MarkAsUsed();
             user.VerifyEmail();
-            _userRepository.Update(user);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return Result<EmailVerifyResponseDto>.Success(new EmailVerifyResponseDto("Email verified successfully."));

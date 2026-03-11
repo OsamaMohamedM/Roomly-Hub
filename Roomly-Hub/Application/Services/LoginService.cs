@@ -64,7 +64,6 @@ namespace Application.Services
                 if (!user.IsLocked)
                 {
                     user.IncrementLoginFailCount();
-                    _userRepository.Update(user);
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
                 }
                 return Result<LoginResponseDto>.Failure("INVALID_CREDENTIALS", "Invalid email or password.");
@@ -74,7 +73,6 @@ namespace Application.Services
             if (user.IsLocked && user.LockoutTokenExpiresAt.HasValue && user.LockoutTokenExpiresAt < DateTime.UtcNow)
             {
                 user.Unlock();
-                _userRepository.Update(user);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
             }
 
@@ -90,13 +88,14 @@ namespace Application.Services
             var accessToken = await _tokenService.GenerateAccessToken(user);
             var refreshTokenString = await _tokenService.GenerateRefreshTokenAsync();
 
+            user.ResetLoginFailCount();
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
             user.AddRefreshToken(RefreshToken.Create(
                 user.Id,
                 _hasher.HashToken(refreshTokenString),
                 DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)));
 
-            user.ResetLoginFailCount();
-            _userRepository.Update(user);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return Result<LoginResponseDto>.Success(

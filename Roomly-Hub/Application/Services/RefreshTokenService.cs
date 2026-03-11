@@ -62,6 +62,7 @@ namespace Application.Services
 
             // Rotate: revoke old token and issue new pair
             refreshToken.Revoke();
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             var newAccessToken = await _tokenService.GenerateAccessToken(user);
             var newRefreshTokenString = await _tokenService.GenerateRefreshTokenAsync();
@@ -71,7 +72,6 @@ namespace Application.Services
                 _hasher.HashToken(newRefreshTokenString),
                 DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays)));
 
-            _userRepository.Update(user);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return Result<LoginResponseDto>.Success(

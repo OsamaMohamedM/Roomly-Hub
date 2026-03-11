@@ -16,7 +16,7 @@
         {
             if (IsDeleted)
                 throw new InvalidOperationException("Entity is already deleted.");
-            
+
             IsDeleted = true;
             MarkUpdated();
         }
@@ -25,7 +25,7 @@
         {
             if (!IsDeleted)
                 throw new InvalidOperationException("Entity is not deleted.");
-            
+
             IsDeleted = false;
             MarkUpdated();
         }

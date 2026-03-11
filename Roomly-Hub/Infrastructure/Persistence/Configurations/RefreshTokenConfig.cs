@@ -9,7 +9,7 @@ namespace Infrastructure.Persistence.Configurations
         public void Configure(EntityTypeBuilder<RefreshToken> builder)
         {
             builder.ToTable("RefreshTokens");
-          
+
             builder.Property(rt => rt.TokenHash)
                 .IsRequired()
                 .HasMaxLength(255);
@@ -19,12 +19,6 @@ namespace Infrastructure.Persistence.Configurations
                 .IsRequired();
             builder.HasIndex(rt => rt.TokenHash)
                 .IsUnique();
-            var foreignKey = builder.HasOne<User>()
-                 .WithMany(u => u.RefreshTokens)
-                 .HasForeignKey(rt => rt.UserId)
-                 .OnDelete(DeleteBehavior.Cascade)
-                 .Metadata;
-            foreignKey.PrincipalToDependent?.SetPropertyAccessMode(PropertyAccessMode.Field);
         }
     }
 }
