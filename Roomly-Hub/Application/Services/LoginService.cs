@@ -69,7 +69,6 @@ namespace Application.Services
                 return Result<LoginResponseDto>.Failure("INVALID_CREDENTIALS", "Invalid email or password.");
             }
 
-            // Auto-unlock if admin-set time-based lockout has expired
             if (user.IsLocked && user.LockoutTokenExpiresAt.HasValue && user.LockoutTokenExpiresAt < DateTime.UtcNow)
             {
                 user.Unlock();

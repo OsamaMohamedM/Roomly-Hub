@@ -13,10 +13,12 @@ namespace Application.Interfaces.Services
 
         Task<Result<LoginResponseDto>> OAuthWithGoogleAsync(GoogleAuthRequestDto requestDto, CancellationToken cancellationToken = default);
 
-        Task<Result<TokenResponseDto>> GenerateNewAccessTokenAsync(Guid userId, CancellationToken cancellationToken = default);
+        Task<Result<TokenResponseDto>> GenerateNewAccessTokenAsync(string refreshToken, CancellationToken cancellationToken = default);
 
         Task<Result> LogoutAsync(Guid userId, CancellationToken cancellationToken = default);
 
-        Task<Result> PasswordResetAsync(CancellationToken cancellationToken = default);
+        public Task<Result> ForgotPasswordAsync(string userEmail, CancellationToken cancellationToken);
+
+        public Task<Result> ResetPasswordAsync(ResetPasswordDto dto);
     }
 }

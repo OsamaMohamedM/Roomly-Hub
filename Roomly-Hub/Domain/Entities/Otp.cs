@@ -11,6 +11,8 @@ namespace Domain.Entities
         public OtpPurpose Purpose { get; private set; }
         public DateTime ExpiresAt { get; private set; }
         public DateTime? UsedAt { get; private set; }
+        public int FailedAttempts { get; private set; }
+        public const int MaxAttempts = 5;
 
         private Otp()
         { }
@@ -42,7 +44,8 @@ namespace Domain.Entities
                 Purpose = purpose,
                 ExpiresAt = expiresAt,
                 Name = name,
-                Description = description
+                Description = description,
+                FailedAttempts = 0
             };
         }
 
@@ -50,7 +53,18 @@ namespace Domain.Entities
 
         public bool IsUsed() => UsedAt.HasValue;
 
-        public bool IsValid() => !IsExpired() && !IsUsed();
+        public bool IsExhausted() => FailedAttempts >= MaxAttempts;
+
+        public bool IsValid() => !IsExpired() && !IsUsed() && !IsExhausted();
+
+        public void IncrementFailedAttempts()
+        {
+            if (IsUsed() || IsExpired() || IsExhausted())
+                return;
+
+            FailedAttempts++;
+            MarkUpdated();
+        }
 
         public void MarkAsUsed()
         {
@@ -59,6 +73,9 @@ namespace Domain.Entities
 
             if (IsExpired())
                 throw new InvalidOperationException("OTP has expired.");
+
+            if (IsExhausted())
+                throw new InvalidOperationException("OTP has reached maximum attempts.");
 
             UsedAt = DateTime.UtcNow;
             MarkUpdated();

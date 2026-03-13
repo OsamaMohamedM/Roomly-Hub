@@ -1,7 +1,9 @@
 using Application.DTOs;
 using Application.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Roomly_Hub.Controllers
 {
@@ -99,6 +101,85 @@ namespace Roomly_Hub.Controllers
             }
 
             return Ok(result.Value);
+        }
+
+        [HttpPost("refresh-access-token")]
+        public async Task<IActionResult> GenerateNewAccessToken([FromBody] RefreshTokenRequestDto requestDto, CancellationToken cancellationToken)
+        {
+            var result = await _authService.GenerateNewAccessTokenAsync(requestDto.RefreshToken, cancellationToken);
+
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    "VALIDATION_ERROR" => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    "USER_NOT_FOUND" => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "User not found")),
+                    "ACCOUNT_INACTIVE" => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Account inactive")),
+                    "ACCOUNT_LOCKED" => StatusCode(StatusCodes.Status423Locked, CreateProblemDetails(result, StatusCodes.Status423Locked, "Account locked")),
+                    "SECURITY_ALERT" => Unauthorized(CreateProblemDetails(result, StatusCodes.Status401Unauthorized, "Security alert")),
+                    "TOKEN_EXPIRED" => Unauthorized(CreateProblemDetails(result, StatusCodes.Status401Unauthorized, "Token expired")),
+                    _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromQuery] string email, CancellationToken cancellationToken)
+        {
+            var result = await _authService.ForgotPasswordAsync(email, cancellationToken);
+
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    "VALIDATION_ERROR" => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))
+                };
+            }
+
+            return Ok();
+        }
+
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto requestDto)
+        {
+            var result = await _authService.ResetPasswordAsync(requestDto);
+
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    "INVALID_REQUEST" => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid request")),
+                    _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))
+                };
+            }
+
+            return Ok();
+        }
+
+        [Authorize]
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout(CancellationToken cancellationToken)
+        {
+            var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+            if (string.IsNullOrWhiteSpace(userIdValue) || !Guid.TryParse(userIdValue, out var userId))
+                return Unauthorized();
+
+            var result = await _authService.LogoutAsync(userId, cancellationToken);
+
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    "VALIDATION_ERROR" => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    "USER_NOT_FOUND" => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "User not found")),
+                    _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))
+                };
+            }
+
+            return Ok();
         }
 
         [HttpPost("google")]

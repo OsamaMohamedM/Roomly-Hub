@@ -30,5 +30,7 @@ namespace Infrastructure.Services
             await client.SendAsync(message, cancellationToken);
             await client.DisconnectAsync(true, cancellationToken);
         }
+
+        
     }
 }

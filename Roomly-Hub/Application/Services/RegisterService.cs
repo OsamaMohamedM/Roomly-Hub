@@ -77,12 +77,11 @@ namespace Application.Services
                 return Result<RegisterResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
             }
 
+            await _userRepository.AddAsync(user, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
             var otpResult = await SendEmailVerificationOtpAsync(user, cancellationToken);
             if (otpResult.IsFailure)
                 return Result<RegisterResponseDto>.Failure(otpResult.ErrorCode!, otpResult.ErrorMessage!);
-
-            await _userRepository.AddAsync(user, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return Result<RegisterResponseDto>.Success(
                 new RegisterResponseDto("Registration successful. Please check your email to verify your account."));
