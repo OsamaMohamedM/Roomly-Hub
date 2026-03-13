@@ -60,7 +60,6 @@ namespace Application.Services
             if (user.IsLocked)
                 return Result<LoginResponseDto>.Failure("ACCOUNT_LOCKED", "Your account is locked.");
 
-            // Rotate: revoke old token and issue new pair
             refreshToken.Revoke();
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 

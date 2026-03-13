@@ -9,30 +9,21 @@ namespace Roomly_Hub.Controllers
     [Route("api/[controller]/v1.0")]
     public class AuthController : ControllerBase
     {
-        private readonly IRegisterService _registerService;
-        private readonly ILoginService _loginService;
+        private readonly IAuthService _authService;
         private readonly IEmailVerificationService _emailVerificationService;
-        private readonly IRefreshTokenService _refreshTokenService;
-        private readonly IGoogleLoginService _googleLoginService;
 
         public AuthController(
-            IRegisterService registerService,
-            ILoginService loginService,
-            IEmailVerificationService emailVerificationService,
-            IRefreshTokenService refreshTokenService,
-            IGoogleLoginService googleLoginService)
+            IAuthService authService,
+            IEmailVerificationService emailVerificationService)
         {
-            _registerService = registerService;
-            _loginService = loginService;
+            _authService = authService;
             _emailVerificationService = emailVerificationService;
-            _refreshTokenService = refreshTokenService;
-            _googleLoginService = googleLoginService;
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequestDto requestDto, CancellationToken cancellationToken)
         {
-            var result = await _registerService.RegisterAsync(requestDto, cancellationToken);
+            var result = await _authService.RegisterAsync(requestDto, cancellationToken);
 
             if (result.IsFailure)
             {
@@ -72,7 +63,7 @@ namespace Roomly_Hub.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequestDto requestDto, CancellationToken cancellationToken)
         {
-            var result = await _loginService.LoginAsync(requestDto, cancellationToken);
+            var result = await _authService.LoginAsync(requestDto, cancellationToken);
 
             if (result.IsFailure)
             {
@@ -93,7 +84,7 @@ namespace Roomly_Hub.Controllers
         [HttpPost("refresh-token")]
         public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto requestDto, CancellationToken cancellationToken)
         {
-            var result = await _refreshTokenService.RefreshTokenAsync(requestDto, cancellationToken);
+            var result = await _authService.RefreshTokenAsync(requestDto, cancellationToken);
 
             if (result.IsFailure)
             {
@@ -113,7 +104,7 @@ namespace Roomly_Hub.Controllers
         [HttpPost("google")]
         public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthRequestDto requestDto, CancellationToken cancellationToken)
         {
-            var result = await _googleLoginService.LoginWithGoogleAsync(requestDto, cancellationToken);
+            var result = await _authService.OAuthWithGoogleAsync(requestDto, cancellationToken);
 
             if (result.IsFailure)
             {

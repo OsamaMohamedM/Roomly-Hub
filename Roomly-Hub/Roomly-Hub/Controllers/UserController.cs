@@ -1,13 +1,15 @@
 using Application.DTOs;
 using Application.Interfaces.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
-using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Roomly_Hub.Controllers
 {
     [ApiController]
     [Route("api/users")]
+    [Authorize]
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -20,7 +22,7 @@ namespace Roomly_Hub.Controllers
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
         {
-            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
             if (string.IsNullOrWhiteSpace(userIdValue) || !Guid.TryParse(userIdValue, out var userId))
                 return Unauthorized();
 
@@ -42,7 +44,7 @@ namespace Roomly_Hub.Controllers
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDto requestDto, CancellationToken cancellationToken)
         {
-            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
             if (string.IsNullOrWhiteSpace(userIdValue) || !Guid.TryParse(userIdValue, out var userId))
                 return Unauthorized();
             var result = await _userService.UpdateProfileAsync(userId, requestDto, cancellationToken);

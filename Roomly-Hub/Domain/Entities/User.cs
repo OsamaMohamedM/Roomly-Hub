@@ -91,6 +91,16 @@ namespace Domain.Entities
             };
         }
 
+        public bool IsRefreshTokenRevoked(string tokenHash)
+        {
+            return _refreshTokens.Any(t => t.TokenHash == tokenHash && !t.IsActive());
+        }
+
+        public bool IsRefreshTokenExpired(string tokenHash)
+        {
+            return _refreshTokens.Any(t => t.TokenHash == tokenHash && t.IsActive());
+        }
+
         public void SetPasswordHash(string hash)
         {
             if (string.IsNullOrWhiteSpace(hash))
@@ -276,7 +286,10 @@ namespace Domain.Entities
 
             if (token.UserId != Id)
                 throw new InvalidOperationException("Refresh token does not belong to this user.");
-
+            foreach (var existingToken in _refreshTokens.Where(t => t.TokenHash == token.TokenHash))
+            {
+                existingToken.Revoke();
+            }
             _refreshTokens.Add(token);
         }
 
