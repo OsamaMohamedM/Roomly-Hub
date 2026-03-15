@@ -7,10 +7,9 @@ using System.Security.Claims;
 
 namespace Roomly_Hub.Controllers
 {
-    [ApiController]
     [Route("api/kyc")]
     [Authorize]
-    public class KycController : ControllerBase
+    public class KycController : ApiControllerBase
     {
         private readonly IKycService _kycService;
 
@@ -66,23 +65,6 @@ namespace Roomly_Hub.Controllers
             }
 
             return Ok(result.Value);
-        }
-
-        private ApiProblemDetails CreateProblemDetails(Application.Common.Results.Result result, int status, string title)
-        {
-            var problem = new ApiProblemDetails
-            {
-                Code = result.ErrorCode,
-                Status = status,
-                Title = title,
-                Detail = result.ErrorMessage,
-                Instance = HttpContext.Request.Path
-            };
-
-            if (result.Errors is not null && result.Errors.Count > 0)
-                problem.Extensions["errors"] = result.Errors;
-
-            return problem;
         }
     }
 }

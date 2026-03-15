@@ -7,9 +7,8 @@ using System.IdentityModel.Tokens.Jwt;
 
 namespace Roomly_Hub.Controllers
 {
-    [ApiController]
     [Route("api/[controller]/v1.0")]
-    public class AuthController : ControllerBase
+    public class AuthController : ApiControllerBase
     {
         private readonly IAuthService _authService;
         private readonly IEmailVerificationService _emailVerificationService;
@@ -126,9 +125,9 @@ namespace Roomly_Hub.Controllers
         }
 
         [HttpPost("forgot-password")]
-        public async Task<IActionResult> ForgotPassword([FromQuery] string email, CancellationToken cancellationToken)
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto requestDto, CancellationToken cancellationToken)
         {
-            var result = await _authService.ForgotPasswordAsync(email, cancellationToken);
+            var result = await _authService.ForgotPasswordAsync(requestDto.Email, cancellationToken);
 
             if (result.IsFailure)
             {
@@ -201,23 +200,6 @@ namespace Roomly_Hub.Controllers
             }
 
             return Ok(result.Value);
-        }
-
-        private ApiProblemDetails CreateProblemDetails(Application.Common.Results.Result result, int status, string title)
-        {
-            var problem = new ApiProblemDetails
-            {
-                Code = result.ErrorCode,
-                Status = status,
-                Title = title,
-                Detail = result.ErrorMessage,
-                Instance = HttpContext.Request.Path
-            };
-
-            if (result.Errors is not null && result.Errors.Count > 0)
-                problem.Extensions["errors"] = result.Errors;
-
-            return problem;
         }
     }
 }

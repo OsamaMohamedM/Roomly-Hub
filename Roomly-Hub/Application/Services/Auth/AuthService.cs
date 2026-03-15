@@ -117,7 +117,7 @@ namespace Application.Services
                 return Result.Failure("USER_NOT_FOUND", "User not found.");
             user.RevokeAllRefreshTokens();
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result<Result>.Success();
+            return Result.Success();
         }
 
         public async Task<Result> ForgotPasswordAsync(string userEmail, CancellationToken cancellationToken)

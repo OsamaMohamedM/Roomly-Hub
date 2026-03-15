@@ -10,5 +10,10 @@
         public ValidationException(string message) : base(message)
         {
         }
+
+        public ValidationException(string message, IDictionary<string, string[]> errors) : base(message)
+        {
+            Errors = errors;
+        }
     }
 }

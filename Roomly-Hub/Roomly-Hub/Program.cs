@@ -66,6 +66,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
+builder.Services.AddExceptionHandler<ExceptionHandlingMiddleware>();
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
@@ -75,8 +77,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseExceptionHandler();
 app.UseHttpsRedirection();
-app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

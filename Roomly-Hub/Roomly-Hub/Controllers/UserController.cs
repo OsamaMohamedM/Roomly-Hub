@@ -7,10 +7,9 @@ using System.IdentityModel.Tokens.Jwt;
 
 namespace Roomly_Hub.Controllers
 {
-    [ApiController]
     [Route("api/users")]
     [Authorize]
-    public class UserController : ControllerBase
+    public class UserController : ApiControllerBase
     {
         private readonly IUserService _userService;
 
@@ -47,6 +46,7 @@ namespace Roomly_Hub.Controllers
             var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
             if (string.IsNullOrWhiteSpace(userIdValue) || !Guid.TryParse(userIdValue, out var userId))
                 return Unauthorized();
+
             var result = await _userService.UpdateProfileAsync(userId, requestDto, cancellationToken);
 
             if (result.IsFailure)
@@ -60,23 +60,6 @@ namespace Roomly_Hub.Controllers
             }
 
             return Ok(result.Value);
-        }
-
-        private ApiProblemDetails CreateProblemDetails(Application.Common.Results.Result result, int status, string title)
-        {
-            var problem = new ApiProblemDetails
-            {
-                Code = result.ErrorCode,
-                Status = status,
-                Title = title,
-                Detail = result.ErrorMessage,
-                Instance = HttpContext.Request.Path
-            };
-
-            if (result.Errors is not null && result.Errors.Count > 0)
-                problem.Extensions["errors"] = result.Errors;
-
-            return problem;
         }
     }
 }
