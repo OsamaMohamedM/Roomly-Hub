@@ -1,4 +1,5 @@
 ﻿using Domain.Entities;
+using Domain.Entities.Room;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence
@@ -24,8 +25,8 @@ namespace Infrastructure.Persistence
 
                     modelBuilder.Entity(entityType.ClrType).HasKey("Id");
                     modelBuilder.Entity(entityType.ClrType)
-            .Property("Id")
-            .ValueGeneratedNever();
+                        .Property("Id")
+                        .ValueGeneratedNever();
                 }
             }
         }
@@ -35,5 +36,9 @@ namespace Infrastructure.Persistence
         public DbSet<Otp> Otps { get; set; }
         public DbSet<KycSubmission> KycSubmissions { get; set; }
         public DbSet<UserExternalLogin> UserExternalLogins { get; set; }
+        public DbSet<Room> Rooms { get; set; }
+        public DbSet<RoomPhoto> RoomPhotos { get; set; }
+        public DbSet<RoomReview> RoomReviews { get; set; }
+        public DbSet<AmenityType> Amenities { get; set; }
     }
 }

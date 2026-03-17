@@ -8,7 +8,6 @@ namespace Application.DTOs
         public decimal PricePerNight { get; set; }
         public decimal? AverageRating { get; set; }
         public string? ThumbnailUrl { get; set; }
-        public string BookingMode { get; set; } = string.Empty;
         public bool FreeCancellation { get; set; }
     }
 }

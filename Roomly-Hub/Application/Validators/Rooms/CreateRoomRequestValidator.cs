@@ -1,5 +1,4 @@
 using Application.DTOs;
-using Domain.enums.Room;
 using FluentValidation;
 
 namespace Application.Validators
@@ -16,23 +15,28 @@ namespace Application.Validators
                 .NotEmpty().WithMessage("Description is required.");
 
             RuleFor(x => x.RoomType)
-                .NotEmpty().WithMessage("Room type is required.")
-                .Must(value => Enum.TryParse<RoomType>(value, true, out _))
-                .WithMessage("Invalid room type.");
+                .IsInEnum().WithMessage("Invalid room type.");
 
+            RuleFor(x => x.PricePerNight)
+                .GreaterThan(0).WithMessage("Price per night must be greater than 0.");
             RuleFor(x => x.PricePerNight)
                 .GreaterThan(0).WithMessage("Price per night must be greater than 0.");
 
             RuleFor(x => x.MaxGuests)
                 .GreaterThan(0).WithMessage("Max guests must be greater than 0.");
 
-            RuleFor(x => x.City)
-                .NotEmpty().WithMessage("City is required.")
-                .MaximumLength(100).WithMessage("City cannot exceed 100 characters.");
-
             RuleFor(x => x.AddressLine)
+                .NotNull().WithMessage("Address is required.");
+
+            RuleFor(x => x.AddressLine.City)
+                .NotEmpty().WithMessage("City is required.")
+                .MaximumLength(100).WithMessage("City cannot exceed 100 characters.")
+                .When(x => x.AddressLine is not null);
+
+            RuleFor(x => x.AddressLine.Street)
                 .NotEmpty().WithMessage("Address line is required.")
-                .MaximumLength(300).WithMessage("Address line cannot exceed 300 characters.");
+                .MaximumLength(300).WithMessage("Address line cannot exceed 300 characters.")
+                .When(x => x.AddressLine is not null);
 
             RuleFor(x => x.CheckInTime)
                 .NotEmpty().WithMessage("Check-in time is required.");

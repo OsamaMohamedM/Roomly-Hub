@@ -30,9 +30,6 @@ namespace Infrastructure.Persistence.Configurations
                 .IsRequired()
                 .HasMaxLength(2000);
 
-            builder.Property(r => r.UnitNumber)
-                .HasMaxLength(50);
-
             builder.Property(r => r.PricePerNight)
                 .IsRequired()
                 .HasColumnType("decimal(18,2)");

@@ -27,10 +27,12 @@ namespace Domain.Interfaces.Repositories
 
         public Task<List<Room>> GetByLocationAsync(Address location, CancellationToken cancellationToken = default);
 
-        public Task<List<Room>> SearchRoomsAsync(string query, CancellationToken cancellationToken = default);
+        public Task<(List<Room>, int)> SearchRoomsAsync(RoomFilters query, CancellationToken cancellationToken = default);
 
         public Task<List<Room>> GetAvailableRoomsAsync(DateTime checkIn, DateTime checkOut, CancellationToken cancellationToken = default);
 
         public Task<List<Room>> GetRoomsWithFiltersAsync(RoomFilters roomFilters, CancellationToken cancellationToken = default);
+
+        public Task<List<Room>> GetPendingReviewRoomsAsync(CancellationToken cancellationToken = default);
     }
 }

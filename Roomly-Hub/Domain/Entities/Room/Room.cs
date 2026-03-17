@@ -10,7 +10,6 @@ namespace Domain.Entities.Room
         public Guid HostId { get; private set; }
         public string Title { get; private set; }
         public string Description { get; private set; }
-        public string? UnitNumber { get; private set; }
         public decimal PricePerNight { get; private set; }
         public int MaxGuests { get; private set; }
         public RoomType RoomType { get; private set; }
@@ -21,6 +20,7 @@ namespace Domain.Entities.Room
         public RoomListingStatus Status { get; private set; }
         public RoomAvailabilityStatus StatusAvailability { get; private set; }
         public decimal? AverageRating { get; private set; }
+        public string? RejectionReason { get; private set; }
 
         public IReadOnlyCollection<RoomPhoto> Photos => _photos.AsReadOnly();
         public IReadOnlyCollection<AmenityType> Amenities => _amenities.AsReadOnly();
@@ -33,13 +33,15 @@ namespace Domain.Entities.Room
             string title,
             string description,
             RoomType roomType,
-            string? unitNumber,
             Address address,
             decimal pricePerNight,
             int maxGuests,
             TimeSpan checkInTime,
             TimeSpan checkOutTime,
-            bool freeCancellation)
+            bool freeCancellation,
+            List<AmenityType>? amenities
+
+            )
         {
             if (hostId == Guid.Empty)
                 throw new ArgumentException("Host ID is required.", nameof(hostId));
@@ -59,13 +61,12 @@ namespace Domain.Entities.Room
             if (checkOutTime <= checkInTime)
                 throw new ArgumentException("Check-out time must be after check-in time.");
 
-            return new Room
+            var room = new Room
             {
                 HostId = hostId,
                 Title = title.Trim(),
                 Description = description.Trim(),
                 RoomType = roomType,
-                UnitNumber = unitNumber?.Trim(),
                 Address = address,
                 PricePerNight = pricePerNight,
                 MaxGuests = maxGuests,
@@ -73,8 +74,74 @@ namespace Domain.Entities.Room
                 CheckOutTime = checkOutTime,
                 FreeCancellation = freeCancellation,
                 Status = RoomListingStatus.Draft,
-                AverageRating = null
+                AverageRating = null,
+                RejectionReason = null
             };
+
+            if (amenities != null)
+            {
+                foreach (var amenity in amenities)
+                {
+                    room.AddAmenity(amenity);
+                }
+            }
+
+            return room;
+        }
+
+        public static Room Create(
+            Guid hostId,
+            string title,
+            string description,
+            RoomType roomType,
+            string? unitNumber,
+            Address address,
+            decimal pricePerNight,
+            int maxGuests,
+            TimeSpan checkInTime,
+            TimeSpan checkOutTime,
+            bool freeCancellation,
+            List<AmenityType>? amenities)
+        {
+            return Create(
+                hostId,
+                title,
+                description,
+                roomType,
+                address,
+                pricePerNight,
+                maxGuests,
+                checkInTime,
+                checkOutTime,
+                freeCancellation,
+                amenities);
+        }
+
+        public static Room Create(
+            Guid hostId,
+            string title,
+            string description,
+            RoomType roomType,
+            string? unitNumber,
+            Address address,
+            decimal pricePerNight,
+            int maxGuests,
+            TimeSpan checkInTime,
+            TimeSpan checkOutTime,
+            bool freeCancellation)
+        {
+            return Create(
+                hostId,
+                title,
+                description,
+                roomType,
+                address,
+                pricePerNight,
+                maxGuests,
+                checkInTime,
+                checkOutTime,
+                freeCancellation,
+                null);
         }
 
         public void SubmitForReview()
@@ -89,6 +156,7 @@ namespace Domain.Entities.Room
                 throw new InvalidOperationException("Room must have at least one amenity.");
 
             Status = RoomListingStatus.PendingReview;
+            RejectionReason = null;
             MarkUpdated();
         }
 
@@ -98,15 +166,23 @@ namespace Domain.Entities.Room
                 throw new InvalidOperationException("Only PendingReview rooms can be approved.");
 
             Status = RoomListingStatus.Published;
+            RejectionReason = null;
             MarkUpdated();
         }
 
-        public void Reject()
+        public void Reject(string reason)
         {
             if (Status != RoomListingStatus.PendingReview)
                 throw new InvalidOperationException("Only PendingReview rooms can be rejected.");
 
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Rejection reason is required.", nameof(reason));
+
+            if (reason.Length > 500)
+                throw new ArgumentException("Rejection reason cannot exceed 500 characters.", nameof(reason));
+
             Status = RoomListingStatus.Draft;
+            RejectionReason = reason.Trim();
             MarkUpdated();
         }
 

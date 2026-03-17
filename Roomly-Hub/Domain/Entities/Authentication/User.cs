@@ -235,6 +235,7 @@ namespace Domain.Entities
             existingOtp.Invalidate();
             MarkUpdated();
         }
+
         public void SetProfilePhoto(string url)
         {
             if (string.IsNullOrWhiteSpace(url))
