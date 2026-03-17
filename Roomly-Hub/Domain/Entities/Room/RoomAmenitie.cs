@@ -1,8 +1,8 @@
 ﻿namespace Domain.Entities.Room
 {
-    public class RoomAmenities : BaseEntity
+    public class RoomAmenitie : BaseEntity
     {
-        public RoomAmenities()
+        public RoomAmenitie()
         { }
 
         public Guid RoomId { get; set; }

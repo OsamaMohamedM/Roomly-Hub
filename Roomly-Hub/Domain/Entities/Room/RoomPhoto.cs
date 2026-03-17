@@ -1,8 +1,8 @@
 ﻿namespace Domain.Entities.Room
 {
-    public class RoomPhotos : BaseEntity
+    public class RoomPhoto : BaseEntity
     {
-        public RoomPhotos()
+        public RoomPhoto()
         { }
 
         public Guid RoomId { get; set; }
