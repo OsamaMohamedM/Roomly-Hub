@@ -3,6 +3,7 @@ using Application.DTOs;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Services;
+using Application.Services.Bookings;
 using Application.Services.RoomCRUD;
 using Application.Validators;
 using Domain.Interfaces.Repositories;
@@ -56,10 +57,12 @@ builder.Services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IKycSubmissionRepository, KycSubmissionRepository>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 
 builder.Services.AddScoped<IRoomMapper, RoomMapper>();
+builder.Services.AddScoped<IBookingMapper, BookingMapper>();
 
 builder.Services.AddScoped<IRegisterService, RegisterService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
@@ -71,6 +74,7 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IRoomModerationService, RoomModerationService>();
+builder.Services.AddScoped<IBookingServices, BookingServices>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
