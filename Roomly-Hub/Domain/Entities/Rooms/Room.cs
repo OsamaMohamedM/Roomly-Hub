@@ -1,4 +1,5 @@
-﻿using Domain.enums.Room;
+﻿using Domain.enums.Booking;
+using Domain.enums.Room;
 using Domain.ValueObjects;
 
 namespace Domain.Entities.Rooms
@@ -21,7 +22,9 @@ namespace Domain.Entities.Rooms
         public RoomAvailabilityStatus StatusAvailability { get; private set; }
         public decimal? AverageRating { get; private set; }
         public string? RejectionReason { get; private set; }
-
+        public SourceStatus Source { get; private set; }
+        public BookingMode BookingMode { get; private set; }
+        public CancellationPolicy CancellationPolicy { get; private set; }
         public IReadOnlyCollection<RoomPhoto> Photos => _photos.AsReadOnly();
         public IReadOnlyCollection<AmenityType> Amenities => _amenities.AsReadOnly();
 
@@ -157,6 +160,30 @@ namespace Domain.Entities.Rooms
 
             Status = RoomListingStatus.PendingReview;
             RejectionReason = null;
+            MarkUpdated();
+        }
+
+        public void ChangeSourceMode(SourceStatus newMode)
+        {
+            if (Source == newMode)
+                return;
+            Source = newMode;
+            MarkUpdated();
+        }
+
+        public void ChangeBookingMode(BookingMode newMode)
+        {
+            if (BookingMode == newMode)
+                return;
+            BookingMode = newMode;
+            MarkUpdated();
+        }
+
+        public void ChangeCancellationPolicy(CancellationPolicy newPolicy)
+        {
+            if (CancellationPolicy == newPolicy)
+                return;
+            CancellationPolicy = newPolicy;
             MarkUpdated();
         }
 
@@ -303,6 +330,18 @@ namespace Domain.Entities.Rooms
         public bool CanGoToAuction()
         {
             return Status == RoomListingStatus.Published;
+        }
+
+        public bool CanBeDeleted()
+        {
+            return Status == RoomListingStatus.Draft ||
+                   Status == RoomListingStatus.Inactive;
+        }
+
+        public bool CanBeBooked()
+        {
+            return Status == RoomListingStatus.Published &&
+                RoomAvailabilityStatus.Available == StatusAvailability;
         }
     }
 }
