@@ -1,3 +1,4 @@
+using Application.Common.Constants;
 using Application.DTOs.Rooms;
 using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -39,7 +40,10 @@ namespace Roomly_Hub.Controllers.Rooms
             {
                 return result.ErrorCode switch
                 {
-                    "RoomNotFound" => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Room.ModeratorNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Moderator not found")),
+                    Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    Errors.Codes.Room.InvalidRoomStatus => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid room status")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }
@@ -58,7 +62,10 @@ namespace Roomly_Hub.Controllers.Rooms
             {
                 return result.ErrorCode switch
                 {
-                    "RoomNotFound" => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Room.ModeratorNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Moderator not found")),
+                    Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    Errors.Codes.Room.InvalidRoomStatus => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid room status")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }

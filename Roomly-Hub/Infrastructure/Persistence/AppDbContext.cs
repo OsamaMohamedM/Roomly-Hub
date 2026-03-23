@@ -1,5 +1,6 @@
 ﻿using Domain.Entities;
-using Domain.Entities.Room;
+using Domain.Entities.Rooms;
+using Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence

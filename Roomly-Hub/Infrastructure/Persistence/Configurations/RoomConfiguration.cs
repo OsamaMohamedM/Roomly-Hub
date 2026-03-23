@@ -1,4 +1,4 @@
-﻿using Domain.Entities.Room;
+﻿using Domain.Entities.Rooms;
 using Domain.enums.Room;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

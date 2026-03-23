@@ -1,3 +1,4 @@
+using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
@@ -42,11 +43,11 @@ namespace Application.Services
         public async Task<Result<RegisterResponseDto>> RegisterAsync(RegisterRequestDto requestDto, CancellationToken cancellationToken = default)
         {
             if (requestDto is null)
-                return Result<RegisterResponseDto>.Failure("VALIDATION_ERROR", "Request body is required.");
+                return Result<RegisterResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
 
             var validationResult = await _validator.ValidateAsync(requestDto, cancellationToken);
             if (!validationResult.IsValid)
-                return Result<RegisterResponseDto>.Failure("VALIDATION_ERROR", "Request validation failed.", ValidationHelper.ToErrorDictionary(validationResult));
+                return Result<RegisterResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed, ValidationHelper.ToErrorDictionary(validationResult));
 
             Email email;
             try
@@ -55,14 +56,14 @@ namespace Application.Services
             }
             catch (ArgumentException ex)
             {
-                return Result<RegisterResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<RegisterResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
 
             var existingUser = await _userRepository.GetByEmailWithOtpsAsync(email, cancellationToken);
             if (existingUser is not null)
             {
                 if (existingUser.EmailVerified)
-                    return Result<RegisterResponseDto>.Failure("EMAIL_ALREADY_EXISTS", "Email is already in use.");
+                    return Result<RegisterResponseDto>.Failure(Errors.Codes.Auth.EmailAlreadyExists, Errors.Messages.Auth.EmailAlreadyExists);
 
                 return await ResendVerificationAsync(existingUser, cancellationToken);
             }
@@ -74,7 +75,7 @@ namespace Application.Services
             }
             catch (ArgumentException ex)
             {
-                return Result<RegisterResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<RegisterResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
 
             await _userRepository.AddAsync(user, cancellationToken);
@@ -112,7 +113,7 @@ namespace Application.Services
                 if (secondsSinceLastOtp < OtpCooldownSeconds)
                 {
                     var remaining = OtpCooldownSeconds - (int)secondsSinceLastOtp;
-                    return Result.Failure("OTP_COOLDOWN", $"Please wait {remaining} seconds before requesting a new verification code.");
+                    return Result.Failure(Errors.Codes.Auth.OtpCooldown, $"Please wait {remaining} seconds before requesting a new verification code.");
                 }
             }
 
@@ -129,7 +130,7 @@ namespace Application.Services
             }
             catch
             {
-                return Result.Failure("EMAIL_SEND_FAILED", "Failed to send verification email.");
+                return Result.Failure(Errors.Codes.Auth.EmailSendFailed, Errors.Messages.Auth.EmailSendFailed);
             }
 
             user.AddOtp(Otp.Create(

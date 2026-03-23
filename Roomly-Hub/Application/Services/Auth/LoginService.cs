@@ -1,3 +1,4 @@
+using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
@@ -39,11 +40,11 @@ namespace Application.Services
         public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto requestDto, CancellationToken cancellationToken = default)
         {
             if (requestDto is null)
-                return Result<LoginResponseDto>.Failure("VALIDATION_ERROR", "Request body is required.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
 
             var validationResult = await _validator.ValidateAsync(requestDto, cancellationToken);
             if (!validationResult.IsValid)
-                return Result<LoginResponseDto>.Failure("VALIDATION_ERROR", "Request validation failed.", ValidationHelper.ToErrorDictionary(validationResult));
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed, ValidationHelper.ToErrorDictionary(validationResult));
 
             Email email;
             try
@@ -52,12 +53,12 @@ namespace Application.Services
             }
             catch (ArgumentException ex)
             {
-                return Result<LoginResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
 
             var user = await _userRepository.GetByEmailAsync(email, cancellationToken);
             if (user is null)
-                return Result<LoginResponseDto>.Failure("INVALID_CREDENTIALS", "Invalid email or password.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.InvalidCredentials, Errors.Messages.Auth.InvalidCredentials);
 
             if (!_hasher.Verify(requestDto.Password, user.PasswordHash))
             {
@@ -66,7 +67,7 @@ namespace Application.Services
                     user.IncrementLoginFailCount();
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
                 }
-                return Result<LoginResponseDto>.Failure("INVALID_CREDENTIALS", "Invalid email or password.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.InvalidCredentials, Errors.Messages.Auth.InvalidCredentials);
             }
 
             if (user.IsLocked && user.LockoutTokenExpiresAt.HasValue && user.LockoutTokenExpiresAt < DateTime.UtcNow)
@@ -76,13 +77,13 @@ namespace Application.Services
             }
 
             if (user.IsLocked)
-                return Result<LoginResponseDto>.Failure("ACCOUNT_LOCKED", "Your account is locked. Please contact support.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.AccountLocked, Errors.Messages.Auth.AccountLocked);
 
             if (!user.EmailVerified)
-                return Result<LoginResponseDto>.Failure("EMAIL_NOT_VERIFIED", "Please verify your email before logging in.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.EmailNotVerified, Errors.Messages.Auth.EmailNotVerified);
 
             if (!user.IsActive)
-                return Result<LoginResponseDto>.Failure("ACCOUNT_INACTIVE", "Your account is inactive.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.AccountInactive, Errors.Messages.Auth.AccountInactive);
 
             var accessToken = await _tokenService.GenerateAccessToken(user);
             var refreshTokenString = await _tokenService.GenerateRefreshTokenAsync();

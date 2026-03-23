@@ -1,6 +1,6 @@
 using Application.DTOs;
 using Application.DTOs.Rooms;
-using Domain.Entities.Room;
+using Domain.Entities.Rooms;
 
 namespace Application.Common.Mappers
 {

@@ -1,12 +1,11 @@
 ﻿using Application.Common.Constants;
-using Application.Common.Filters;
 using Application.Common.Mappers;
 using Application.Common.Pagination;
 using Application.Common.Results;
 using Application.DTOs;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
-using Domain.Entities.Room;
+using Domain.Entities.Rooms;
 using Domain.Interfaces.Repositories;
 
 namespace Application.Services.RoomCRUD
@@ -34,10 +33,10 @@ namespace Application.Services.RoomCRUD
         {
             var user = await _userRepository.GetByIdAsync(hostId, cancellationToken);
             if (user == null)
-                return Result<RoomResponseDto>.Failure(RoomErrorCodes.UserNotFound, RoomErrorMessages.UserNotFoundMessage);
+                return Result<RoomResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Room.UserNotFound);
 
             if (!user.CanCreateListing())
-                return Result<RoomResponseDto>.Failure(RoomErrorCodes.PermissionDenied, RoomErrorMessages.CannotCreateListingMessage);
+                return Result<RoomResponseDto>.Failure(Errors.Codes.Common.PermissionDenied, Errors.Messages.Room.CannotCreateListing);
 
             var room = Room.Create(
                 hostId,
@@ -63,13 +62,13 @@ namespace Application.Services.RoomCRUD
         {
             var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
-                return Result.Failure(RoomErrorCodes.RoomNotFound, RoomErrorMessages.RoomNotFoundMessage);
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
 
             if (room.HostId != hostId)
-                return Result.Failure(RoomErrorCodes.PermissionDenied, RoomErrorMessages.CannotDeactivateListingMessage);
+                return Result.Failure(Errors.Codes.Common.PermissionDenied, Errors.Messages.Room.CannotDeactivateListing);
 
             if (!room.CanBeDeactivated())
-                return Result.Failure(RoomErrorCodes.InvalidState, RoomErrorMessages.RoomCannotBeDeactivatedMessage);
+                return Result.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeDeactivated);
 
             room.Deactivate();
             await _roomRepository.UpdateAsync(room, cancellationToken);
@@ -81,7 +80,7 @@ namespace Application.Services.RoomCRUD
         {
             var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
-                return Result<RoomResponseDto>.Failure(RoomErrorCodes.RoomNotFound, RoomErrorMessages.RoomNotFoundMessage);
+                return Result<RoomResponseDto>.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
             
             return Result<RoomResponseDto>.Success(_roomMapper.ToResponseDto(room));
         }
@@ -108,11 +107,11 @@ namespace Application.Services.RoomCRUD
         {
             var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
-                return Result.Failure(RoomErrorCodes.RoomNotFound, RoomErrorMessages.RoomNotFoundMessage);
-            
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
             if (room.HostId != hostId)
-                return Result.Failure(RoomErrorCodes.PermissionDenied, RoomErrorMessages.CannotSubmitForReviewMessage);
-            
+                return Result.Failure(Errors.Codes.Common.PermissionDenied, Errors.Messages.Room.CannotSubmitForReview);
+
             room.SubmitForReview();
             await _roomRepository.UpdateAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -123,13 +122,13 @@ namespace Application.Services.RoomCRUD
         {
             var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
-                return Result<RoomResponseDto>.Failure(RoomErrorCodes.RoomNotFound, RoomErrorMessages.RoomNotFoundMessage);
-            
+                return Result<RoomResponseDto>.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
             if (room.HostId != hostId)
-                return Result<RoomResponseDto>.Failure(RoomErrorCodes.PermissionDenied, RoomErrorMessages.CannotUpdateListingMessage);
-            
+                return Result<RoomResponseDto>.Failure(Errors.Codes.Common.PermissionDenied, Errors.Messages.Room.CannotUpdateListing);
+
             if (!room.CanBeEdited())
-                return Result<RoomResponseDto>.Failure(RoomErrorCodes.InvalidState, RoomErrorMessages.RoomCannotBeEditedMessage);
+                return Result<RoomResponseDto>.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeEdited);
             
             room.UpdateDetails(
                 dto.Title ?? room.Title, 

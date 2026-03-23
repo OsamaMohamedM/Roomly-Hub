@@ -1,7 +1,7 @@
 using Application.Common.Constants;
-using Application.Common.Filters;
 using Application.DTOs;
 using Application.Interfaces.Services;
+using Domain.Entities.Rooms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
@@ -33,8 +33,8 @@ namespace Roomly_Hub.Controllers.Rooms
             {
                 return result.ErrorCode switch
                 {
-                    RoomErrorCodes.UserNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "User not found")),
-                    RoomErrorCodes.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
+                    Errors.Codes.Common.UserNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "User not found")),
+                    Errors.Codes.Common.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }
@@ -56,9 +56,9 @@ namespace Roomly_Hub.Controllers.Rooms
             {
                 return result.ErrorCode switch
                 {
-                    RoomErrorCodes.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
-                    RoomErrorCodes.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
-                    RoomErrorCodes.InvalidState => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid state")),
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
+                    Errors.Codes.Common.InvalidState => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid state")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }
@@ -80,8 +80,8 @@ namespace Roomly_Hub.Controllers.Rooms
             {
                 return result.ErrorCode switch
                 {
-                    RoomErrorCodes.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
-                    RoomErrorCodes.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }
@@ -103,9 +103,9 @@ namespace Roomly_Hub.Controllers.Rooms
             {
                 return result.ErrorCode switch
                 {
-                    RoomErrorCodes.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
-                    RoomErrorCodes.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
-                    RoomErrorCodes.InvalidState => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid state")),
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
+                    Errors.Codes.Common.InvalidState => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid state")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }
@@ -126,7 +126,7 @@ namespace Roomly_Hub.Controllers.Rooms
             {
                 return result.ErrorCode switch
                 {
-                    RoomErrorCodes.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }

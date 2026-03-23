@@ -1,3 +1,4 @@
+using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
@@ -31,29 +32,29 @@ namespace Application.Services
         public async Task<Result<EmailVerifyResponseDto>> VerifyEmailAsync(OtpVerifyDto otpVerifyDto, CancellationToken cancellationToken = default)
         {
             if (otpVerifyDto is null)
-                return Result<EmailVerifyResponseDto>.Failure("VALIDATION_ERROR", "Request body is required.");
+                return Result<EmailVerifyResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
 
             var validationResult = await _validator.ValidateAsync(otpVerifyDto, cancellationToken);
             if (!validationResult.IsValid)
-                return Result<EmailVerifyResponseDto>.Failure("VALIDATION_ERROR", "Request validation failed.", ValidationHelper.ToErrorDictionary(validationResult));
+                return Result<EmailVerifyResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed, ValidationHelper.ToErrorDictionary(validationResult));
 
             var user = await _userRepository.GetByIdWithOtpsAsync(otpVerifyDto.UserId, cancellationToken);
             if (user is null)
-                return Result<EmailVerifyResponseDto>.Failure("USER_NOT_FOUND", "User not found.");
+                return Result<EmailVerifyResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
 
             if (user.EmailVerified)
-                return Result<EmailVerifyResponseDto>.Failure("EMAIL_ALREADY_VERIFIED", "Email is already verified.");
+                return Result<EmailVerifyResponseDto>.Failure(Errors.Codes.Auth.EmailAlreadyVerified, Errors.Messages.Auth.EmailAlreadyVerified);
 
             var validOtps = user.Otps
                 .Where(o => o.Purpose == OtpPurpose.EmailVerification && !o.IsExpired() && !o.IsUsed())
                 .ToList();
 
             if (validOtps.Count == 0)
-                return Result<EmailVerifyResponseDto>.Failure("INVALID_OTP", "No valid OTP found for this user.");
+                return Result<EmailVerifyResponseDto>.Failure(Errors.Codes.Auth.InvalidOtp, "No valid OTP found for this user.");
 
             var matchedOtp = validOtps.FirstOrDefault(o => _otpService.VerifyOtp(otpVerifyDto.Otp, o.CodeHash));
             if (matchedOtp is null)
-                return Result<EmailVerifyResponseDto>.Failure("INVALID_OTP", "The provided OTP is invalid.");
+                return Result<EmailVerifyResponseDto>.Failure(Errors.Codes.Auth.InvalidOtp, Errors.Messages.Auth.InvalidOtp);
 
             matchedOtp.MarkAsUsed();
             user.VerifyEmail();

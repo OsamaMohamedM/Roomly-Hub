@@ -1,7 +1,7 @@
 ﻿using Domain.enums.Room;
 using Domain.ValueObjects;
 
-namespace Domain.Entities.Room
+namespace Domain.Entities.Rooms
 {
     public class Room : BaseEntity
     {

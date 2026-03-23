@@ -1,4 +1,4 @@
-﻿using Domain.Entities.Room;
+﻿using Domain.Entities.Rooms;
 
 namespace Application.DTOs.Rooms
 {

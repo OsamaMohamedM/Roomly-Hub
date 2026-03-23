@@ -1,3 +1,4 @@
+using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
@@ -44,18 +45,18 @@ namespace Application.Services
         public async Task<Result<LoginResponseDto>> LoginWithGoogleAsync(GoogleAuthRequestDto requestDto, CancellationToken cancellationToken = default)
         {
             if (requestDto is null)
-                return Result<LoginResponseDto>.Failure("VALIDATION_ERROR", "Request body is required.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
 
             var validationResult = await _validator.ValidateAsync(requestDto, cancellationToken);
             if (!validationResult.IsValid)
-                return Result<LoginResponseDto>.Failure("VALIDATION_ERROR", "Request validation failed.", ValidationHelper.ToErrorDictionary(validationResult));
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed, ValidationHelper.ToErrorDictionary(validationResult));
 
             var googleUser = await _googleAuthService.ValidateIdTokenAsync(requestDto.IdToken, cancellationToken);
             if (googleUser is null)
-                return Result<LoginResponseDto>.Failure("INVALID_GOOGLE_TOKEN", "Invalid or expired Google token.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.InvalidGoogleToken, Errors.Messages.Auth.InvalidGoogleToken);
 
             if (!googleUser.EmailVerified)
-                return Result<LoginResponseDto>.Failure("EMAIL_NOT_VERIFIED", "Google account email is not verified.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.EmailNotVerified, "Google account email is not verified.");
 
             Email email;
             try
@@ -64,7 +65,7 @@ namespace Application.Services
             }
             catch (ArgumentException ex)
             {
-                return Result<LoginResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
 
             bool isNewUser = false;
@@ -99,10 +100,10 @@ namespace Application.Services
             }
 
             if (!user.IsActive)
-                return Result<LoginResponseDto>.Failure("ACCOUNT_INACTIVE", "Your account is inactive.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.AccountInactive, Errors.Messages.Auth.AccountInactive);
 
             if (user.IsLocked)
-                return Result<LoginResponseDto>.Failure("ACCOUNT_LOCKED", "Your account is locked. Please contact support.");
+                return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.AccountLocked, Errors.Messages.Auth.AccountLocked);
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 

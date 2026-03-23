@@ -1,3 +1,4 @@
+using Application.Common.Constants;
 using Application.Common.Results;
 using Application.DTOs;
 using Application.Interfaces.Persistence;
@@ -34,7 +35,6 @@ namespace Application.Services
             IUnitOfWork unitOfWork,
             IEmailService emailService,
             IOtpService otpService,
-
             Microsoft.Extensions.Options.IOptions<JwtSettings> jwtSettings)
         {
             _registerService = registerService;
@@ -72,27 +72,30 @@ namespace Application.Services
 
         public async Task<Result<TokenResponseDto>> GenerateNewAccessTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
-            if (refreshToken == String.Empty)
-                return Result<TokenResponseDto>.Failure("VALIDATION_ERROR", "User ID is required.");
+            if (refreshToken == string.Empty)
+                return Result<TokenResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
+
             var tokenHash = _hasher.HashToken(refreshToken);
 
             var user = await _userRepository.GetByRefreshTokenHashAsync(tokenHash);
             if (user is null)
-                return Result<TokenResponseDto>.Failure("USER_NOT_FOUND", "refresh not found.");
+                return Result<TokenResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Auth.RefreshTokenNotFound);
 
             if (!user.IsActive)
-                return Result<TokenResponseDto>.Failure("ACCOUNT_INACTIVE", "Your account is inactive.");
+                return Result<TokenResponseDto>.Failure(Errors.Codes.Auth.AccountInactive, Errors.Messages.Auth.AccountInactive);
 
             if (user.IsLocked)
-                return Result<TokenResponseDto>.Failure("ACCOUNT_LOCKED", "Your account is locked.");
+                return Result<TokenResponseDto>.Failure(Errors.Codes.Auth.AccountLocked, Errors.Messages.Auth.AccountLocked);
+
             if (user.IsRefreshTokenRevoked(tokenHash))
             {
                 user.RevokeAllRefreshTokens();
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
-                return Result<TokenResponseDto>.Failure("SECURITY_ALERT", "Token reuse detected. Please login again.");
+                return Result<TokenResponseDto>.Failure(Errors.Codes.Auth.SecurityAlert, Errors.Messages.Auth.SecurityAlert);
             }
+
             if (user.IsRefreshTokenExpired(tokenHash))
-                return Result<TokenResponseDto>.Failure("TOKEN_EXPIRED", "Your session has expired. Please login again.");
+                return Result<TokenResponseDto>.Failure(Errors.Codes.Auth.TokenExpired, Errors.Messages.Auth.TokenExpired);
 
             var newAccessToken = await _tokenService.GenerateAccessToken(user);
             var newRefreshToken = await _tokenService.GenerateRefreshTokenAsync();
@@ -110,11 +113,12 @@ namespace Application.Services
         public async Task<Result> LogoutAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             if (userId == Guid.Empty)
-                return Result.Failure("VALIDATION_ERROR", "User ID is required.");
+                return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
 
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null)
-                return Result.Failure("USER_NOT_FOUND", "User not found.");
+                return Result.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
+
             user.RevokeAllRefreshTokens();
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return Result.Success();
@@ -122,12 +126,12 @@ namespace Application.Services
 
         public async Task<Result> ForgotPasswordAsync(string userEmail, CancellationToken cancellationToken)
         {
-            if (userEmail == null || userEmail.Length == 0)
+            if (string.IsNullOrWhiteSpace(userEmail))
             {
-                return Result.Failure("VALIDATION_ERROR", "Email is required.");
+                return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.EmailRequired);
             }
-            var email = Email.Create(userEmail);
 
+            var email = Email.Create(userEmail);
             var user = await _userRepository.GetByEmailAsync(email, cancellationToken);
 
             if (user is null)
@@ -158,14 +162,14 @@ namespace Application.Services
             var email = Email.Create(dto.Email);
             var user = await _userRepository.GetByEmailAsync(email);
             if (user is null)
-                return Result.Failure("INVALID_REQUEST", "Try again.");
+                return Result.Failure(Errors.Codes.Auth.InvalidRequest, Errors.Messages.Auth.InvalidRequest);
 
-            var otpHash = _hasher.Hash(dto.OtpCode);
             var otp = Otp.Create(user.Id, dto.OtpCode, OtpPurpose.PasswordReset, DateTime.UtcNow);
             if (!user.CheckValidOtp(otp))
             {
-                return Result.Failure("INVALID_REQUEST", "Try again.");
+                return Result.Failure(Errors.Codes.Auth.InvalidRequest, Errors.Messages.Auth.InvalidRequest);
             }
+
             user.RevokeOtp(otp);
             var newHash = _hasher.Hash(dto.Password);
             user.SetPasswordHash(newHash);

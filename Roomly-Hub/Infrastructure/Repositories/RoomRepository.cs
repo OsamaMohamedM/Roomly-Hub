@@ -1,5 +1,4 @@
-using Application.Common.Filters;
-using Domain.Entities.Room;
+using Domain.Entities.Rooms;
 using Domain.Interfaces.Repositories;
 using Domain.ValueObjects;
 using Infrastructure.Persistence;

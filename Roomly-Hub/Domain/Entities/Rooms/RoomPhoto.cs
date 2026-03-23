@@ -1,4 +1,4 @@
-﻿namespace Domain.Entities.Room
+﻿namespace Domain.Entities.Rooms
 {
     public class RoomPhoto : BaseEntity
     {

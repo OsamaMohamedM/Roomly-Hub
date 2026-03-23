@@ -1,7 +1,7 @@
 ﻿using Domain.enums.Room;
 using Domain.ValueObjects;
 
-namespace Application.Common.Filters
+namespace Domain.Entities.Rooms
 {
     public class RoomFilters
     {

@@ -33,23 +33,23 @@ namespace Application.Services.RoomCRUD
             var moderator = await _userRepository.GetByIdAsync(moderatorId, cancellationToken);
             if (moderator == null)
             {
-                return Result.Failure(RoomErrorCodes.ModeratorNotFound, RoomErrorMessages.ModeratorNotFoundMessage);
+                return Result.Failure(Errors.Codes.Room.ModeratorNotFound, Errors.Messages.Room.ModeratorNotFound);
             }
 
             if (!moderator.HasAdminRole(AdminRole.Moderator) && !moderator.HasAdminRole(AdminRole.SuperAdmin))
             {
-                return Result.Failure(RoomErrorCodes.UnauthorizedAction, RoomErrorMessages.UnauthorizedActionMessage);
+                return Result.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
             }
 
             var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
             {
-                return Result.Failure(RoomErrorCodes.RoomNotFound, RoomErrorMessages.RoomNotFoundMessage);
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
             }
 
             if (room.Status != Domain.enums.Room.RoomListingStatus.PendingReview)
             {
-                return Result.Failure(RoomErrorCodes.InvalidRoomStatus, RoomErrorMessages.OnlyPendingRoomsCanBeApprovedMessage);
+                return Result.Failure(Errors.Codes.Room.InvalidRoomStatus, Errors.Messages.Room.OnlyPendingRoomsCanBeApproved);
             }
 
             room.Approve();
@@ -70,23 +70,23 @@ namespace Application.Services.RoomCRUD
             var moderator = await _userRepository.GetByIdAsync(moderatorId, cancellationToken);
             if (moderator == null)
             {
-                return Result.Failure(RoomErrorCodes.ModeratorNotFound, RoomErrorMessages.ModeratorNotFoundMessage);
+                return Result.Failure(Errors.Codes.Room.ModeratorNotFound, Errors.Messages.Room.ModeratorNotFound);
             }
 
             if (!moderator.HasAdminRole(AdminRole.Moderator) && !moderator.HasAdminRole(AdminRole.SuperAdmin))
             {
-                return Result.Failure(RoomErrorCodes.UnauthorizedAction, RoomErrorMessages.UnauthorizedActionMessage);
+                return Result.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
             }
 
             var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
             {
-                return Result.Failure(RoomErrorCodes.RoomNotFound, RoomErrorMessages.RoomNotFoundMessage);
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
             }
 
             if (room.Status != Domain.enums.Room.RoomListingStatus.PendingReview)
             {
-                return Result.Failure(RoomErrorCodes.InvalidRoomStatus, RoomErrorMessages.OnlyPendingRoomsCanBeRejectedMessage);
+                return Result.Failure(Errors.Codes.Room.InvalidRoomStatus, Errors.Messages.Room.OnlyPendingRoomsCanBeRejected);
             }
 
             room.Reject(reason);

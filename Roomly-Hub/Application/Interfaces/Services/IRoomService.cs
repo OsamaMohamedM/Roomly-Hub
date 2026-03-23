@@ -1,7 +1,7 @@
-using Application.Common.Filters;
 using Application.Common.Pagination;
 using Application.Common.Results;
 using Application.DTOs;
+using Domain.Entities.Rooms;
 
 namespace Application.Interfaces.Services
 {
