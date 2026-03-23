@@ -19,8 +19,6 @@ namespace Application.Validators
 
             RuleFor(x => x.PricePerNight)
                 .GreaterThan(0).WithMessage("Price per night must be greater than 0.");
-            RuleFor(x => x.PricePerNight)
-                .GreaterThan(0).WithMessage("Price per night must be greater than 0.");
 
             RuleFor(x => x.MaxGuests)
                 .GreaterThan(0).WithMessage("Max guests must be greater than 0.");

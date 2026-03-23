@@ -48,35 +48,18 @@ namespace Application.Services.RoomCRUD
             await _roomRepository.AddAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            var responseDto = new RoomResponseDto
-            {
-                Id = room.Id,
-                Title = room.Title,
-                Description = room.Description,
-                RoomType = room.RoomType.ToString(),
-                Address = $"{room.Address.Street}, {room.Address.City}, {room.Address.State}, {room.Address.ZipCode}",
-                City = room.Address.City,
-                PricePerNight = room.PricePerNight,
-                MaxGuests = room.MaxGuests,
-                FreeCancellation = room.FreeCancellation,
-                Status = room.Status.ToString(),
-                AverageRating = room.AverageRating,
-                Photos = room.Photos.Select(p => new RoomPhotoDto { Id = p.Id, Url = p.Url }).ToList(),
-                Amenities = room.Amenities.Select(a => a.Name).ToList()
-            };
-
-            return Result<RoomResponseDto>.Success(responseDto);
+            return Result<RoomResponseDto>.Success(MapToResponseDto(room));
         }
 
         public async Task<Result> DeactivateRoomAsync(Guid hostId, Guid roomId, CancellationToken cancellationToken = default)
         {
-            var room = _roomRepository.GetByIdAsync(roomId, cancellationToken).Result;
+            var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
-                return (Result.Failure("RoomNotFound", "The specified room was not found."));
+                return Result.Failure("RoomNotFound", "The specified room was not found.");
             if (room.HostId != hostId)
-                return (Result.Failure("PermissionDenied", "User does not have permission to deactivate this listing."));
+                return Result.Failure("PermissionDenied", "User does not have permission to deactivate this listing.");
             if (!room.CanBeDeactivated())
-                return (Result.Failure("InvalidState", "Room cannot be deactivated in its current state."));
+                return Result.Failure("InvalidState", "Room cannot be deactivated in its current state.");
             room.Deactivate();
             await _roomRepository.UpdateAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -88,27 +71,12 @@ namespace Application.Services.RoomCRUD
             var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
                 return Result<RoomResponseDto>.Failure("RoomNotFound", "The specified room was not found.");
-            return Result<RoomResponseDto>.Success(new RoomResponseDto
-            {
-                Id = room.Id,
-                Title = room.Title,
-                Description = room.Description,
-                RoomType = room.RoomType.ToString(),
-                Address = $"{room.Address.Street}, {room.Address.City}, {room.Address.State}, {room.Address.ZipCode}",
-                City = room.Address.City,
-                PricePerNight = room.PricePerNight,
-                MaxGuests = room.MaxGuests,
-                FreeCancellation = room.FreeCancellation,
-                Status = room.Status.ToString(),
-                AverageRating = room.AverageRating,
-                Photos = room.Photos.Select(p => new RoomPhotoDto { Id = p.Id, Url = p.Url }).ToList(),
-                Amenities = room.Amenities.Select(a => a.Name).ToList()
-            });
+            return Result<RoomResponseDto>.Success(MapToResponseDto(room));
         }
 
-        public async Task<Result<PagedResult<RoomSummaryDto>>> SearchRoomsAsync(RoomFilters filters)
+        public async Task<Result<PagedResult<RoomSummaryDto>>> SearchRoomsAsync(RoomFilters filters, CancellationToken cancellationToken = default)
         {
-            var (rooms, totalCount) = await _roomRepository.SearchRoomsAsync(filters);
+            var (rooms, totalCount) = await _roomRepository.SearchRoomsAsync(filters, cancellationToken);
 
             var dtos = rooms.Select(r => new RoomSummaryDto
             {
@@ -158,7 +126,12 @@ namespace Application.Services.RoomCRUD
             room.UpdateDetails(dto.Title ?? room.Title, dto.Description ?? room.Description, dto.PricePerNight ?? room.PricePerNight, dto.MaxGuests ?? room.MaxGuests, dto.CheckInTime ?? room.CheckInTime, dto.CheckOutTime ?? room.CheckOutTime, dto.FreeCancellation ?? room.FreeCancellation);
             await _roomRepository.UpdateAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return Result<RoomResponseDto>.Success(new RoomResponseDto
+            return Result<RoomResponseDto>.Success(MapToResponseDto(room));
+        }
+
+        private static RoomResponseDto MapToResponseDto(Room room)
+        {
+            return new RoomResponseDto
             {
                 Id = room.Id,
                 Title = room.Title,
@@ -173,7 +146,7 @@ namespace Application.Services.RoomCRUD
                 AverageRating = room.AverageRating,
                 Photos = room.Photos.Select(p => new RoomPhotoDto { Id = p.Id, Url = p.Url }).ToList(),
                 Amenities = room.Amenities.Select(a => a.Name).ToList()
-            });
+            };
         }
     }
 }

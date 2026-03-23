@@ -17,6 +17,6 @@ namespace Application.Interfaces.Services
 
         Task<Result<RoomResponseDto>> GetRoomByIdAsync(Guid roomId, CancellationToken cancellationToken = default);
 
-        Task<Result<PagedResult<RoomSummaryDto>>> SearchRoomsAsync(RoomFilters filters);
+        Task<Result<PagedResult<RoomSummaryDto>>> SearchRoomsAsync(RoomFilters filters, CancellationToken cancellationToken = default);
     }
 }

@@ -2,6 +2,7 @@ using Application.DTOs;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Services;
+using Application.Services.RoomCRUD;
 using Application.Validators;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
@@ -64,6 +65,8 @@ builder.Services.AddScoped<IGoogleLoginService, GoogleLoginService>();
 builder.Services.AddScoped<IKycService, KycService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IRoomService, RoomService>();
+builder.Services.AddScoped<IRoomModerationService, RoomModerationService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();

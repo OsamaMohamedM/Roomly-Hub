@@ -37,7 +37,8 @@ namespace Infrastructure.Repositories
 
         public Task DeleteAsync(Room room, CancellationToken cancellationToken = default)
         {
-            _context.Rooms.Remove(room);
+            room.SoftDelete();
+            _context.Rooms.Update(room);
             return Task.CompletedTask;
         }
 
