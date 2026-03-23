@@ -1,3 +1,4 @@
+using Application.Common.Mappers;
 using Application.DTOs;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
@@ -56,6 +57,9 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IKycSubmissionRepository, KycSubmissionRepository>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
+
+builder.Services.AddScoped<IRoomMapper, RoomMapper>();
 
 builder.Services.AddScoped<IRegisterService, RegisterService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
