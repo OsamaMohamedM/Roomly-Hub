@@ -20,7 +20,6 @@ namespace Application.Common.Results
         public string? ErrorMessage { get; }
         public IReadOnlyDictionary<string, string[]>? Errors { get; }
 
-
         public static Result Success() => new(true);
 
         public static Result Failure(string errorCode, string errorMessage)
@@ -47,7 +46,7 @@ namespace Application.Common.Results
 
         public static Result<T> Success(T value) => new(true, value);
 
-        public static new Result<T> Failure(string errorCode, string errorMessage)
+        public new static Result<T> Failure(string errorCode, string errorMessage)
             => new(false, default, errorCode, errorMessage);
 
         public static Result<T> Failure(string errorCode, string errorMessage, IReadOnlyDictionary<string, string[]> errors)

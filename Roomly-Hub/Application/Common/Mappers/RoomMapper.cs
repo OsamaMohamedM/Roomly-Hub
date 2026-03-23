@@ -4,14 +4,12 @@ using Domain.Entities.Rooms;
 
 namespace Application.Common.Mappers
 {
-    /// <summary>
-    /// Maps Room entities to DTOs
-    /// Centralizes DTO mapping logic following DRY principle
-    /// </summary>
     public interface IRoomMapper
     {
         RoomResponseDto ToResponseDto(Room room);
+
         RoomSummaryDto ToSummaryDto(Room room);
+
         PendingRoomDto ToPendingRoomDto(Room room);
     }
 

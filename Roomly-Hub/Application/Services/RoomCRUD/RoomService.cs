@@ -81,7 +81,7 @@ namespace Application.Services.RoomCRUD
             var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
             if (room == null)
                 return Result<RoomResponseDto>.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
-            
+
             return Result<RoomResponseDto>.Success(_roomMapper.ToResponseDto(room));
         }
 
@@ -129,16 +129,16 @@ namespace Application.Services.RoomCRUD
 
             if (!room.CanBeEdited())
                 return Result<RoomResponseDto>.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeEdited);
-            
+
             room.UpdateDetails(
-                dto.Title ?? room.Title, 
-                dto.Description ?? room.Description, 
-                dto.PricePerNight ?? room.PricePerNight, 
-                dto.MaxGuests ?? room.MaxGuests, 
-                dto.CheckInTime ?? room.CheckInTime, 
-                dto.CheckOutTime ?? room.CheckOutTime, 
+                dto.Title ?? room.Title,
+                dto.Description ?? room.Description,
+                dto.PricePerNight ?? room.PricePerNight,
+                dto.MaxGuests ?? room.MaxGuests,
+                dto.CheckInTime ?? room.CheckInTime,
+                dto.CheckOutTime ?? room.CheckOutTime,
                 dto.FreeCancellation ?? room.FreeCancellation);
-            
+
             await _roomRepository.UpdateAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return Result<RoomResponseDto>.Success(_roomMapper.ToResponseDto(room));
