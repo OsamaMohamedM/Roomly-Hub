@@ -1,4 +1,5 @@
 ﻿using Domain.Entities;
+using Domain.Entities.Booking;
 using Domain.Entities.Rooms;
 using Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
@@ -37,6 +38,7 @@ namespace Infrastructure.Persistence
         public DbSet<Otp> Otps { get; set; }
         public DbSet<KycSubmission> KycSubmissions { get; set; }
         public DbSet<UserExternalLogin> UserExternalLogins { get; set; }
+        public DbSet<Booking> Bookings { get; set; }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<RoomPhoto> RoomPhotos { get; set; }
         public DbSet<RoomReview> RoomReviews { get; set; }
