@@ -8,6 +8,7 @@ namespace Domain.Entities.Rooms
     {
         private readonly List<RoomPhoto> _photos = new();
         private readonly List<AmenityType> _amenities = new();
+        private readonly List<RoomAvailability> _availabilities = new();
         public Guid HostId { get; private set; }
         public string Title { get; private set; }
         public string Description { get; private set; }
@@ -27,6 +28,7 @@ namespace Domain.Entities.Rooms
         public CancellationPolicy CancellationPolicy { get; private set; }
         public IReadOnlyCollection<RoomPhoto> Photos => _photos.AsReadOnly();
         public IReadOnlyCollection<AmenityType> Amenities => _amenities.AsReadOnly();
+        public IReadOnlyCollection<RoomAvailability> Availabilities => _availabilities.AsReadOnly();
 
         private Room()
         { }
@@ -313,6 +315,47 @@ namespace Domain.Entities.Rooms
                 throw new InvalidOperationException($"Amenity {amenity} not found.");
 
             _amenities.Remove(existing);
+            MarkUpdated();
+        }
+
+        public void BlockDateRange(DateOnly from, DateOnly to, AvailabilityReason reason)
+        {
+            if (to < from)
+                throw new ArgumentException("To date must be greater than or equal to from date.", nameof(to));
+
+            for (var date = from; date <= to; date = date.AddDays(1))
+            {
+                BlockDate(date, reason);
+            }
+        }
+
+        public void UnblockDateRange(DateOnly from, DateOnly to)
+        {
+            if (to < from)
+                throw new ArgumentException("To date must be greater than or equal to from date.", nameof(to));
+
+            for (var date = from; date <= to; date = date.AddDays(1))
+            {
+                UnblockDate(date);
+            }
+        }
+
+        public void BlockDate(DateOnly date, AvailabilityReason reason)
+        {
+            if (_availabilities.Any(a => a.BlockedDate == date && !a.IsDeleted))
+                throw new InvalidOperationException("Date is already blocked.");
+
+            _availabilities.Add(RoomAvailability.Create(Id, date, reason));
+            MarkUpdated();
+        }
+
+        public void UnblockDate(DateOnly date)
+        {
+            var blockedDate = _availabilities.FirstOrDefault(a => a.BlockedDate == date && !a.IsDeleted);
+            if (blockedDate is null)
+                throw new InvalidOperationException("Date is not blocked.");
+
+            blockedDate.SoftDelete();
             MarkUpdated();
         }
 

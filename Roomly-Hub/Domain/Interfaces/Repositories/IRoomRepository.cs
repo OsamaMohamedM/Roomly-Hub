@@ -33,5 +33,8 @@ namespace Domain.Interfaces.Repositories
         public Task<List<Room>> GetRoomsWithFiltersAsync(RoomFilters roomFilters, CancellationToken cancellationToken = default);
 
         public Task<List<Room>> GetPendingReviewRoomsAsync(CancellationToken cancellationToken = default);
+
+    
+        Task<List<RoomAvailability>> GetBlockedDatesAsync(Guid roomId, int year, int month, CancellationToken cancellationToken = default);
     }
 }
