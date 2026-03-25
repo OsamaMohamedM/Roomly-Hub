@@ -1,3 +1,4 @@
+using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
@@ -32,28 +33,28 @@ namespace Application.Services
         public async Task<Result<KycSubmissionResponseDto>> SubmitKycAsync(Guid userId, SubmitKycRequestDto requestDto, CancellationToken cancellationToken = default)
         {
             if (requestDto is null)
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", "Request body is required.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
 
             if (userId == Guid.Empty)
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", "User ID is required.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
 
             var validationResult = await _submitValidator.ValidateAsync(requestDto, cancellationToken);
             if (!validationResult.IsValid)
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", "Request validation failed.", ValidationHelper.ToErrorDictionary(validationResult));
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed, ValidationHelper.ToErrorDictionary(validationResult));
 
             var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
             if (user is null)
-                return Result<KycSubmissionResponseDto>.Failure("USER_NOT_FOUND", "User not found.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
 
             if (!user.IsActive)
-                return Result<KycSubmissionResponseDto>.Failure("ACCOUNT_INACTIVE", "Your account is inactive.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Kyc.AccountInactive, Errors.Messages.Kyc.AccountInactive);
 
             if (user.KycAttemptCount >= 3)
-                return Result<KycSubmissionResponseDto>.Failure("KYC_LIMIT_REACHED", "Maximum KYC attempts reached.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Kyc.KycLimitReached, Errors.Messages.Kyc.KycLimitReached);
 
             var pendingSubmission = await _kycSubmissionRepository.GetPendingAsync(userId, cancellationToken);
             if (pendingSubmission is not null)
-                return Result<KycSubmissionResponseDto>.Failure("PENDING_KYC_EXISTS", "You already have a pending KYC submission.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Kyc.PendingKycExists, Errors.Messages.Kyc.PendingKycExists);
 
             KycSubmission submission;
             try
@@ -72,11 +73,11 @@ namespace Application.Services
             }
             catch (ArgumentException ex)
             {
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
 
             await _kycSubmissionRepository.AddAsync(submission, cancellationToken);
@@ -88,31 +89,31 @@ namespace Application.Services
         public async Task<Result<KycSubmissionResponseDto>> ReviewKycAsync(Guid reviewerId, ReviewKycRequestDto requestDto, CancellationToken cancellationToken = default)
         {
             if (requestDto is null)
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", "Request body is required.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
 
             if (reviewerId == Guid.Empty)
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", "Reviewer ID is required.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
 
             if (requestDto.SubmissionId == Guid.Empty)
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", "Submission ID is required.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
 
             if (!requestDto.Approved && string.IsNullOrWhiteSpace(requestDto.RejectionReason))
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", "Rejection reason is required.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
 
             var reviewer = await _userRepository.GetByIdAsync(reviewerId, cancellationToken);
             if (reviewer is null)
-                return Result<KycSubmissionResponseDto>.Failure("USER_NOT_FOUND", "Reviewer not found.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
 
             if (reviewer.AdminRole == AdminRole.None)
-                return Result<KycSubmissionResponseDto>.Failure("FORBIDDEN", "Only admins can review KYC submissions.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Kyc.ForbiddenReview, Errors.Messages.Kyc.ForbiddenReview);
 
             var submission = await _kycSubmissionRepository.GetByIdAsync(requestDto.SubmissionId, cancellationToken);
             if (submission is null)
-                return Result<KycSubmissionResponseDto>.Failure("SUBMISSION_NOT_FOUND", "KYC submission not found.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Kyc.SubmissionNotFound, Errors.Messages.Kyc.SubmissionNotFound);
 
             var user = await _userRepository.GetByIdAsync(submission.UserId, cancellationToken);
             if (user is null)
-                return Result<KycSubmissionResponseDto>.Failure("USER_NOT_FOUND", "User not found.");
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
 
             try
             {
@@ -130,11 +131,11 @@ namespace Application.Services
             }
             catch (ArgumentException ex)
             {
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                return Result<KycSubmissionResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<KycSubmissionResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);

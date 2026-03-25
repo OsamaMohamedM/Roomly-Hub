@@ -1,3 +1,4 @@
+using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
@@ -28,11 +29,11 @@ namespace Application.Services
         public async Task<Result<UserProfileResponseDto>> GetProfileAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             if (userId == Guid.Empty)
-                return Result<UserProfileResponseDto>.Failure("VALIDATION_ERROR", "User ID is required.");
+                return Result<UserProfileResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
 
             var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
             if (user is null)
-                return Result<UserProfileResponseDto>.Failure("USER_NOT_FOUND", "User not found.");
+                return Result<UserProfileResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
 
             return Result<UserProfileResponseDto>.Success(Map(user));
         }
@@ -40,18 +41,18 @@ namespace Application.Services
         public async Task<Result<UserProfileResponseDto>> UpdateProfileAsync(Guid userId, UpdateProfileRequestDto requestDto, CancellationToken cancellationToken = default)
         {
             if (requestDto is null)
-                return Result<UserProfileResponseDto>.Failure("VALIDATION_ERROR", "Request body is required.");
+                return Result<UserProfileResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
 
             if (userId == Guid.Empty)
-                return Result<UserProfileResponseDto>.Failure("VALIDATION_ERROR", "User ID is required.");
+                return Result<UserProfileResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
 
             var validationResult = await _validator.ValidateAsync(requestDto, cancellationToken);
             if (!validationResult.IsValid)
-                return Result<UserProfileResponseDto>.Failure("VALIDATION_ERROR", "Request validation failed.", ValidationHelper.ToErrorDictionary(validationResult));
+                return Result<UserProfileResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed, ValidationHelper.ToErrorDictionary(validationResult));
 
             var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
             if (user is null)
-                return Result<UserProfileResponseDto>.Failure("USER_NOT_FOUND", "User not found.");
+                return Result<UserProfileResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
 
             try
             {
@@ -65,11 +66,11 @@ namespace Application.Services
             }
             catch (ArgumentException ex)
             {
-                return Result<UserProfileResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<UserProfileResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                return Result<UserProfileResponseDto>.Failure("VALIDATION_ERROR", ex.Message);
+                return Result<UserProfileResponseDto>.Failure(Errors.Codes.Common.ValidationError, ex.Message);
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);

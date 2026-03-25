@@ -97,9 +97,9 @@ namespace Application.Services
             if (user.IsRefreshTokenExpired(tokenHash))
                 return Result<TokenResponseDto>.Failure(Errors.Codes.Auth.TokenExpired, Errors.Messages.Auth.TokenExpired);
 
+            user.RevokeRefreshToken(tokenHash);
             var newAccessToken = await _tokenService.GenerateAccessToken(user);
             var newRefreshToken = await _tokenService.GenerateRefreshTokenAsync();
-            user.RevokeRefreshToken(newRefreshToken);
             user.AddRefreshToken(RefreshToken.Create(
                 user.Id,
                 _hasher.HashToken(newRefreshToken),
@@ -159,18 +159,19 @@ namespace Application.Services
 
         public async Task<Result> ResetPasswordAsync(ResetPasswordDto dto)
         {
+            if (string.IsNullOrWhiteSpace(dto.Email) || string.IsNullOrWhiteSpace(dto.OtpCode) || string.IsNullOrWhiteSpace(dto.Password))
+                return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
+
             var email = Email.Create(dto.Email);
-            var user = await _userRepository.GetByEmailAsync(email);
+            var user = await _userRepository.GetByEmailWithOtpsAsync(email);
             if (user is null)
                 return Result.Failure(Errors.Codes.Auth.InvalidRequest, Errors.Messages.Auth.InvalidRequest);
+            var validOtps = user.GetValidOtps(OtpPurpose.PasswordReset);
+            var matchedOtp = validOtps.FirstOrDefault(o => _hasher.Verify(dto.OtpCode, o.CodeHash));
+            if (matchedOtp is null)
+                return Result.Failure(Errors.Codes.Auth.InvalidOtp, Errors.Messages.Auth.InvalidOtp);
 
-            var otp = Otp.Create(user.Id, dto.OtpCode, OtpPurpose.PasswordReset, DateTime.UtcNow);
-            if (!user.CheckValidOtp(otp))
-            {
-                return Result.Failure(Errors.Codes.Auth.InvalidRequest, Errors.Messages.Auth.InvalidRequest);
-            }
-
-            user.RevokeOtp(otp);
+            matchedOtp.MarkAsUsed();
             var newHash = _hasher.Hash(dto.Password);
             user.SetPasswordHash(newHash);
             user.RevokeAllRefreshTokens();

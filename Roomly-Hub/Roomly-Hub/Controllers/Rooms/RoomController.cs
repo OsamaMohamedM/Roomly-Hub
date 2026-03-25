@@ -135,6 +135,7 @@ namespace Roomly_Hub.Controllers.Rooms
         }
 
         [HttpPost("search")]
+        [AllowAnonymous]
         public async Task<IActionResult> Search([FromBody] RoomFilters filters, CancellationToken cancellationToken)
         {
             var userId = GetUserId();

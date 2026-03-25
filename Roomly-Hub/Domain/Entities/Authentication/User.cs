@@ -390,25 +390,10 @@ namespace Domain.Entities
             }
         }
 
-        public bool CheckValidOtp(Otp otp)
+        public IReadOnlyList<Otp> GetValidOtps(OtpPurpose otp)
         {
-            if (otp is null)
-                throw new ArgumentNullException(nameof(otp));
-            if (otp.UserId != Id)
-                throw new InvalidOperationException("OTP does not belong to this user.");
-
-            var existingOtp = _otps.FirstOrDefault(o => o.Id == otp.Id);
-            if (existingOtp is null)
-                throw new InvalidOperationException("OTP not found for this user.");
-
-            if (!existingOtp.IsValid())
-                return false;
-
-            if (existingOtp.CodeHash == otp.CodeHash)
-                return true;
-
-            existingOtp.IncrementFailedAttempts();
-            return false;
+            var ValidOtps = _otps.Where(o => o.Purpose == otp && o.IsValid());
+            return ValidOtps.ToList().AsReadOnly();
         }
 
         public void AddOtp(Otp otp)

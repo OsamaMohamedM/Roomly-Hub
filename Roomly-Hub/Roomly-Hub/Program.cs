@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Roomly_Hub.Middleware;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +34,14 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    var secretKey = builder.Configuration["JwtSettings:SecretKey"];
+    if (string.IsNullOrWhiteSpace(secretKey))
+    {
+        throw new InvalidOperationException("JWT SecretKey is missing in configuration.");
+    }
+
+    var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -41,6 +50,8 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
         ValidAudience = builder.Configuration["JwtSettings:Audience"],
+        IssuerSigningKey = signingKey,
+        ClockSkew = TimeSpan.Zero
     };
 });
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestDtoValidator>();

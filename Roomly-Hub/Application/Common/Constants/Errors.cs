@@ -49,6 +49,15 @@ namespace Application.Common.Constants
                 public const string PaymentFailed = "PAYMENT_FAILED";
                 public const string CancellationNotAllowed = "CANCELLATION_NOT_ALLOWED";
             }
+
+            public static class Kyc
+            {
+                public const string AccountInactive = "ACCOUNT_INACTIVE";
+                public const string KycLimitReached = "KYC_LIMIT_REACHED";
+                public const string PendingKycExists = "PENDING_KYC_EXISTS";
+                public const string SubmissionNotFound = "SUBMISSION_NOT_FOUND";
+                public const string ForbiddenReview = "FORBIDDEN";
+            }
         }
 
         public static class Messages
@@ -105,6 +114,15 @@ namespace Application.Common.Constants
                 public const string InvalidBookingDateRange = "Check-out date must be after check-in date.";
                 public const string PaymentFailed = "Booking payment could not be processed.";
                 public const string CancellationNotAllowed = "Booking cancellation is not allowed in the current state.";
+            }
+
+            public static class Kyc
+            {
+                public const string AccountInactive = "Your account is inactive.";
+                public const string KycLimitReached = "Maximum KYC attempts reached.";
+                public const string PendingKycExists = "You already have a pending KYC submission.";
+                public const string SubmissionNotFound = "KYC submission not found.";
+                public const string ForbiddenReview = "Only admins can review KYC submissions.";
             }
         }
     }
