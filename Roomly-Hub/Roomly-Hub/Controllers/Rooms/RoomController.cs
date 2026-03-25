@@ -146,5 +146,69 @@ namespace Roomly_Hub.Controllers.Rooms
 
             return Ok(result.Value);
         }
+
+        [HttpGet("{roomId:guid}/availability")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAvailability(Guid roomId, [FromQuery] int year, [FromQuery] int month, CancellationToken cancellationToken)
+        {
+            var result = await _roomService.GetAvailabilityAsync(roomId, year, month, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
+        [HttpPost("{roomId:guid}/block-dates")]
+        public async Task<IActionResult> BlockDates(Guid roomId, [FromBody] BlockDatesRequestDto dto, CancellationToken cancellationToken)
+        {
+            var hostId = GetUserId();
+            if (hostId == null)
+                return Unauthorized();
+
+            var result = await _roomService.BlockDatesAsync(hostId.Value, roomId, dto, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    Errors.Codes.Room.DateAlreadyBlocked => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Date already blocked")),
+                    Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok();
+        }
+
+        [HttpDelete("{roomId:guid}/block-dates")]
+        public async Task<IActionResult> UnblockDates(Guid roomId, [FromBody] BlockDatesRequestDto dto, CancellationToken cancellationToken)
+        {
+            var hostId = GetUserId();
+            if (hostId == null)
+                return Unauthorized();
+
+            var result = await _roomService.UnblockDatesAsync(hostId.Value, roomId, dto, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    Errors.Codes.Room.DateNotBlocked => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Date not blocked")),
+                    Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok();
+        }
     }
 }

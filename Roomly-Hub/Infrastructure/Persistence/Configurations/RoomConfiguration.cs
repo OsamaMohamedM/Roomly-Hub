@@ -109,6 +109,14 @@ namespace Infrastructure.Persistence.Configurations
             builder.Navigation(r => r.Address)
                 .IsRequired();
 
+            builder.HasMany(r => r.Availabilities)
+                .WithOne()
+                .HasForeignKey(a => a.RoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Navigation(r => r.Availabilities)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
             builder.HasMany(r => r.Photos)
                 .WithOne()
                 .HasForeignKey(p => p.RoomId)

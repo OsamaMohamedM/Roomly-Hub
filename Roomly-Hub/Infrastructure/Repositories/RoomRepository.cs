@@ -20,6 +20,7 @@ namespace Infrastructure.Repositories
             return await _context.Rooms
                 .Include(r => r.Photos)
                 .Include(r => r.Amenities)
+                .Include(r => r.Availabilities)
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted, cancellationToken);
         }
 
@@ -125,11 +126,23 @@ namespace Infrastructure.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<List<RoomAvailability>> GetBlockedDatesAsync(Guid roomId, int year, int month, CancellationToken cancellationToken = default)
+        {
+            return await _context.Set<RoomAvailability>()
+                .Where(x => x.RoomId == roomId
+                            && !x.IsDeleted
+                            && x.BlockedDate.Year == year
+                            && x.BlockedDate.Month == month)
+                .OrderBy(x => x.BlockedDate)
+                .ToListAsync(cancellationToken);
+        }
+
         private IQueryable<Room> BaseRoomsQuery()
         {
             return _context.Rooms
                 .Include(r => r.Photos)
                 .Include(r => r.Amenities)
+                .Include(r => r.Availabilities)
                 .Where(r => !r.IsDeleted);
         }
 

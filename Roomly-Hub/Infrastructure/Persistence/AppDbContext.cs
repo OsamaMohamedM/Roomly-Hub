@@ -41,6 +41,7 @@ namespace Infrastructure.Persistence
         public DbSet<Booking> Bookings { get; set; }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<RoomPhoto> RoomPhotos { get; set; }
+        public DbSet<RoomAvailability> RoomAvailabilities { get; set; }
         public DbSet<RoomReview> RoomReviews { get; set; }
         public DbSet<AmenityType> Amenities { get; set; }
     }

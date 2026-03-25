@@ -158,6 +158,40 @@ namespace Roomly_Hub.Controllers
             return Ok();
         }
 
+        /// <summary>
+        /// Requests an account unlock OTP.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("request-unlock")]
+        public async Task<IActionResult> RequestUnlock([FromBody] RequestUnlockDto requestDto, CancellationToken cancellationToken)
+        {
+            await _authService.RequestAccountUnlockAsync(requestDto, cancellationToken);
+            return Ok();
+        }
+
+        /// <summary>
+        /// Unlocks account using unlock OTP.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpPost("unlock-account")]
+        public async Task<IActionResult> UnlockAccount([FromBody] UnlockAccountDto requestDto, CancellationToken cancellationToken)
+        {
+            var result = await _authService.UnlockAccountAsync(requestDto, cancellationToken);
+
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    Errors.Codes.Auth.InvalidOtp => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid OTP")),
+                    Errors.Codes.Auth.OtpInvalidated => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "OTP invalidated")),
+                    _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))
+                };
+            }
+
+            return Ok();
+        }
+
         [Authorize]
         [HttpPost("logout")]
         public async Task<IActionResult> Logout(CancellationToken cancellationToken)
