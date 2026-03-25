@@ -6,7 +6,9 @@ using Application.DTOs;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Domain.Entities.Rooms;
+using Domain.enums.Room;
 using Domain.Interfaces.Repositories;
+using FluentValidation;
 
 namespace Application.Services.RoomCRUD
 {
@@ -16,17 +18,20 @@ namespace Application.Services.RoomCRUD
         private readonly IUserRepository _userRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRoomMapper _roomMapper;
+        private readonly IValidator<BlockDatesRequestDto> _blockDatesRequestValidator;
 
         public RoomService(
             IRoomRepository roomRepository,
             IUserRepository userRepository,
             IUnitOfWork unitOfWork,
-            IRoomMapper roomMapper)
+            IRoomMapper roomMapper,
+            IValidator<BlockDatesRequestDto> blockDatesRequestValidator)
         {
             _roomRepository = roomRepository;
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
             _roomMapper = roomMapper;
+            _blockDatesRequestValidator = blockDatesRequestValidator;
         }
 
         public async Task<Result<RoomResponseDto>> CreateRoomAsync(Guid hostId, CreateRoomRequestDto dto, CancellationToken cancellationToken = default)
@@ -142,6 +147,77 @@ namespace Application.Services.RoomCRUD
             await _roomRepository.UpdateAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return Result<RoomResponseDto>.Success(_roomMapper.ToResponseDto(room));
+        }
+
+
+        public async Task<Result<AvailabilityResponseDto>> GetAvailabilityAsync(Guid roomId, int year, int month, CancellationToken cancellationToken = default)
+        {
+            if (month is < 1 or > 12)
+                return Result<AvailabilityResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
+
+            var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room == null)
+                return Result<AvailabilityResponseDto>.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
+            var blockedDates = await _roomRepository.GetBlockedDatesAsync(roomId, year, month, cancellationToken);
+
+            return Result<AvailabilityResponseDto>.Success(new AvailabilityResponseDto
+            {
+                RoomId = roomId,
+                BlockedDates = blockedDates.Select(x => x.BlockedDate).OrderBy(x => x).ToList()
+            });
+        }
+
+        public async Task<Result> BlockDatesAsync(Guid hostId, Guid roomId, BlockDatesRequestDto dto, CancellationToken cancellationToken = default)
+        {
+            var validationResult = await _blockDatesRequestValidator.ValidateAsync(dto, cancellationToken);
+            if (!validationResult.IsValid)
+                return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
+
+            var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room == null)
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
+            if (room.HostId != hostId)
+                return Result.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
+
+            if (room.Status is not RoomListingStatus.Published and not RoomListingStatus.Inactive)
+                return Result.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeEdited);
+
+            for (var date = dto.From; date <= dto.To; date = date.AddDays(1))
+            {
+                if (room.Availabilities.Any(a => a.BlockedDate == date && !a.IsDeleted))
+                    return Result.Failure(Errors.Codes.Room.DateAlreadyBlocked, Errors.Messages.Room.DateAlreadyBlocked);
+            }
+
+            room.BlockDateRange(dto.From, dto.To, AvailabilityReason.HostBlocked);
+            await _roomRepository.UpdateAsync(room, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result.Success();
+        }
+        public async Task<Result> UnblockDatesAsync(Guid hostId, Guid roomId, BlockDatesRequestDto dto, CancellationToken cancellationToken = default)
+        {
+            var validationResult = await _blockDatesRequestValidator.ValidateAsync(dto, cancellationToken);
+            if (!validationResult.IsValid)
+                return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
+
+            var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room == null)
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
+            if (room.HostId != hostId)
+                return Result.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
+
+            for (var date = dto.From; date <= dto.To; date = date.AddDays(1))
+            {
+                if (!room.Availabilities.Any(a => a.BlockedDate == date && !a.IsDeleted))
+                    return Result.Failure(Errors.Codes.Room.DateNotBlocked, Errors.Messages.Room.DateNotBlocked);
+            }
+
+            room.UnblockDateRange(dto.From, dto.To);
+            await _roomRepository.UpdateAsync(room, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result.Success();
         }
     }
 }

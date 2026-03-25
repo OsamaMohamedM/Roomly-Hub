@@ -18,5 +18,11 @@ namespace Application.Interfaces.Services
         Task<Result<RoomResponseDto>> GetRoomByIdAsync(Guid roomId, CancellationToken cancellationToken = default);
 
         Task<Result<PagedResult<RoomSummaryDto>>> SearchRoomsAsync(RoomFilters filters, CancellationToken cancellationToken = default);
+        Task<Result<AvailabilityResponseDto>> GetAvailabilityAsync(Guid roomId, int year, int month, CancellationToken cancellationToken = default);
+
+
+        Task<Result> BlockDatesAsync(Guid hostId, Guid roomId, BlockDatesRequestDto dto, CancellationToken cancellationToken = default);
+
+        Task<Result> UnblockDatesAsync(Guid hostId, Guid roomId, BlockDatesRequestDto dto, CancellationToken cancellationToken = default);
     }
 }

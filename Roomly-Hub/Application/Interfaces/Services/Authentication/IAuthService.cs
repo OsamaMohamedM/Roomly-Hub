@@ -20,5 +20,9 @@ namespace Application.Interfaces.Services
         public Task<Result> ForgotPasswordAsync(string userEmail, CancellationToken cancellationToken);
 
         public Task<Result> ResetPasswordAsync(ResetPasswordDto dto);
+
+        Task<Result> RequestAccountUnlockAsync(RequestUnlockDto dto, CancellationToken cancellationToken);
+
+        Task<Result> UnlockAccountAsync(UnlockAccountDto dto, CancellationToken cancellationToken);
     }
 }

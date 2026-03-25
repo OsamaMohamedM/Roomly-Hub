@@ -20,6 +20,8 @@ namespace Application.Common.Constants
                 public const string RoomNotFound = "ROOM_NOT_FOUND";
                 public const string ModeratorNotFound = "MODERATOR_NOT_FOUND";
                 public const string InvalidRoomStatus = "INVALID_ROOM_STATUS";
+                public const string DateAlreadyBlocked = "DATE_ALREADY_BLOCKED";
+                public const string DateNotBlocked = "DATE_NOT_BLOCKED";
             }
 
             public static class Auth
@@ -28,6 +30,7 @@ namespace Application.Common.Constants
                 public const string InvalidRefreshToken = "INVALID_REFRESH_TOKEN";
                 public const string InvalidGoogleToken = "INVALID_GOOGLE_TOKEN";
                 public const string InvalidOtp = "INVALID_OTP";
+                public const string OtpInvalidated = "OTP_INVALIDATED";
                 public const string InvalidRequest = "INVALID_REQUEST";
                 public const string EmailAlreadyExists = "EMAIL_ALREADY_EXISTS";
                 public const string EmailAlreadyVerified = "EMAIL_ALREADY_VERIFIED";
@@ -87,6 +90,8 @@ namespace Application.Common.Constants
                 public const string RoomCannotBeDeactivated = "Room cannot be deactivated in its current state.";
                 public const string OnlyPendingRoomsCanBeApproved = "Only rooms that are pending review can be approved.";
                 public const string OnlyPendingRoomsCanBeRejected = "Only rooms that are pending review can be rejected.";
+                public const string DateAlreadyBlocked = "A date in the selected range is already blocked.";
+                public const string DateNotBlocked = "A date in the selected range is not blocked.";
             }
 
             public static class Auth
@@ -95,6 +100,7 @@ namespace Application.Common.Constants
                 public const string InvalidRefreshToken = "Invalid or expired refresh token.";
                 public const string InvalidGoogleToken = "Invalid or expired Google token.";
                 public const string InvalidOtp = "The provided OTP is invalid.";
+                public const string OtpInvalidated = "OTP invalidated.";
                 public const string InvalidRequest = "Try again.";
                 public const string EmailAlreadyExists = "Email is already in use.";
                 public const string EmailAlreadyVerified = "Email is already verified.";
