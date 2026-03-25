@@ -73,7 +73,7 @@ namespace Application.Services
         public async Task<Result<TokenResponseDto>> GenerateNewAccessTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
             if (refreshToken == string.Empty)
-                return Result<TokenResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
+                return Result<TokenResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Auth.InvalidRefreshToken);
 
             var tokenHash = _hasher.HashToken(refreshToken);
 
@@ -138,7 +138,8 @@ namespace Application.Services
                 return Result.Success();
 
             user.InvalidatePreviousOtps(OtpPurpose.PasswordReset);
-            var otp = Otp.Create(user.Id, _otpService.GenerateOtp(), OtpPurpose.PasswordReset, DateTime.UtcNow.AddMinutes(25));
+            var otpCode = _otpService.GenerateOtp();
+            var otp = Otp.Create(user.Id, _hasher.Hash(otpCode), OtpPurpose.PasswordReset, DateTime.UtcNow.AddMinutes(25));
             user.AddOtp(otp);
             await _unitOfWork.SaveChangesAsync();
             try
@@ -146,7 +147,7 @@ namespace Application.Services
                 await _emailService.SendEmailAsync(
                    user.Email.Value,
                    "Password Reset- Roomly",
-                   $"<h1>Welcome, {user.Name}!</h1><p>Your Otp code is: <b>{otp.CodeHash}</b></p><p>This code will expire in {otp.ExpiresAt} minutes.</p>",
+                   $"<h1>Welcome, {user.Name}!</h1><p>Your Otp code is: <b>{otpCode}</b></p><p>This code will expire in 25 minutes.</p>",
                    cancellationToken);
             }
             catch (Exception ex)

@@ -53,6 +53,7 @@ namespace Roomly_Hub.Controllers.Bookings
                     var code when code == Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
                     var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
                     var code when code == Errors.Codes.Booking.InvalidBookingState => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid booking state")),
+                    var code when code == Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }
@@ -99,7 +100,11 @@ namespace Roomly_Hub.Controllers.Bookings
             var result = await _bookingServices.CreateBookingAsync(dto, cancellationToken);
             if (result.IsFailure)
             {
-                return BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"));
+                return result.ErrorCode switch
+                {
+                    var code when code == Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
             }
 
             return Ok(result.Value);
@@ -126,6 +131,7 @@ namespace Roomly_Hub.Controllers.Bookings
                     var code when code == Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
                     var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
                     var code when code == Errors.Codes.Booking.RoomNotAvailable => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Room not available")),
+                    var code when code == Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }

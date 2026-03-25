@@ -48,6 +48,7 @@ namespace Application.Common.Constants
                 public const string InvalidBookingDateRange = "INVALID_BOOKING_DATE_RANGE";
                 public const string PaymentFailed = "PAYMENT_FAILED";
                 public const string CancellationNotAllowed = "CANCELLATION_NOT_ALLOWED";
+                public const string ConcurrencyConflict = "CONCURRENCY_CONFLICT";
             }
 
             public static class Kyc
@@ -114,6 +115,7 @@ namespace Application.Common.Constants
                 public const string InvalidBookingDateRange = "Check-out date must be after check-in date.";
                 public const string PaymentFailed = "Booking payment could not be processed.";
                 public const string CancellationNotAllowed = "Booking cancellation is not allowed in the current state.";
+                public const string ConcurrencyConflict = "The booking was changed by another request. Please retry.";
             }
 
             public static class Kyc

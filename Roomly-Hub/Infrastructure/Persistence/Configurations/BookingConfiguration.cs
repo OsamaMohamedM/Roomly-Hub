@@ -13,6 +13,11 @@ namespace Infrastructure.Persistence.Configurations
 
             builder.HasKey(b => b.Id);
 
+            builder.Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .ValueGeneratedOnAddOrUpdate()
+                .IsConcurrencyToken();
+
             builder.Property(b => b.RoomId).IsRequired();
             builder.Property(b => b.GuestId).IsRequired();
             builder.Property(b => b.CheckInDate).IsRequired();

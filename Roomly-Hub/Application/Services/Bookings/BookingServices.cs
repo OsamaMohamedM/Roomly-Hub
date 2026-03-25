@@ -1,4 +1,5 @@
 ﻿using Application.Common.Constants;
+using Application.Common.Exceptions;
 using Application.Common.Helpers;
 using Application.Common.Mappers;
 using Application.Common.Results;
@@ -81,45 +82,60 @@ namespace Application.Services.Bookings
                     ValidationHelper.ToErrorDictionary(validationResult));
             }
 
-            var canBookRoom = await _bookingRepository.IsRoomAvailableAsync(bookingRequestDto.RoomId, bookingRequestDto.StartDate, bookingRequestDto.EndDate, cancellation);
-            if (!canBookRoom)
+            try
             {
-                return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
-            }
+                return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                {
+                    var canBookRoom = await _bookingRepository.IsRoomAvailableAsync(
+                        bookingRequestDto.RoomId,
+                        bookingRequestDto.StartDate,
+                        bookingRequestDto.EndDate,
+                        token);
 
-            var room = await _roomRepository.GetByIdAsync(bookingRequestDto.RoomId, cancellation);
-            if (room == null)
+                    if (!canBookRoom)
+                    {
+                        return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                    }
+
+                    var room = await _roomRepository.GetByIdAsync(bookingRequestDto.RoomId, token);
+                    if (room == null)
+                    {
+                        return Result<string>.Failure(Errors.Codes.Room.RoomNotFound, $"{Errors.Messages.Room.RoomNotFound} With This Id : {bookingRequestDto.RoomId}");
+                    }
+
+                    if (!room.CanBeBooked())
+                    {
+                        return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                    }
+
+                    var totalPrice = room.PricePerNight * (decimal)(bookingRequestDto.EndDate - bookingRequestDto.StartDate).TotalDays;
+
+                    var booking = Booking.CreateBooking(
+                        bookingRequestDto.UserId,
+                        bookingRequestDto.RoomId,
+                        bookingRequestDto.StartDate,
+                        bookingRequestDto.EndDate,
+                        totalPrice,
+                        bookingRequestDto.PaymentMethod,
+                        bookingRequestDto.PaymentStatus,
+                        room.BookingMode,
+                        room.Source,
+                        room.CancellationPolicy);
+
+                    await _bookingRepository.AddBookingAsync(booking, token);
+                    await _unitOfWork.SaveChangesAsync(token);
+
+                    var resultMessage = booking.Status == BookingStatus.Pending
+                        ? "Booking request submitted and awaiting host approval."
+                        : $"Booking is confirmed and the total price is {totalPrice}";
+
+                    return Result<string>.Success(resultMessage);
+                }, cancellation);
+            }
+            catch (ConcurrencyException)
             {
-                return Result<string>.Failure(Errors.Codes.Room.RoomNotFound, $"{Errors.Messages.Room.RoomNotFound} With This Id : {bookingRequestDto.RoomId}");
+                return Result<string>.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
             }
-
-            if (!room.CanBeBooked())
-            {
-                return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
-            }
-
-            var totalPrice = room.PricePerNight * (decimal)(bookingRequestDto.EndDate - bookingRequestDto.StartDate).TotalDays;
-
-            var booking = Booking.CreateBooking(
-                bookingRequestDto.UserId,
-                bookingRequestDto.RoomId,
-                bookingRequestDto.StartDate,
-                bookingRequestDto.EndDate,
-                totalPrice,
-                bookingRequestDto.PaymentMethod,
-                bookingRequestDto.PaymentStatus,
-                room.BookingMode,
-                room.Source,
-                room.CancellationPolicy);
-
-            await _bookingRepository.AddBookingAsync(booking, cancellation);
-            await _unitOfWork.SaveChangesAsync(cancellation);
-
-            var resultMessage = booking.Status == BookingStatus.Pending
-                ? "Booking request submitted and awaiting host approval."
-                : $"Booking is confirmed and the total price is {totalPrice}";
-
-            return Result<string>.Success(resultMessage);
         }
 
         public async Task<Result<IEnumerable<BookingSummaryDto>>> GetBookingsByGuestAsync(Guid guestId, CancellationToken cancellation = default)
@@ -157,46 +173,56 @@ namespace Application.Services.Bookings
                 return Result<BookingSummaryDto>.Failure(Errors.Codes.Common.ValidationError, "BookingId is required for update.");
             }
 
-            var booking = await _bookingRepository.GetBookingByIdAsync(bookingRequestDto.BookingId.Value, cancellation);
-            if (booking == null)
+            try
             {
-                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.BookingNotFound, $"{Errors.Messages.Booking.BookingNotFound} With This Id : {bookingRequestDto.BookingId.Value}");
-            }
+                return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                {
+                    var booking = await _bookingRepository.GetBookingByIdAsync(bookingRequestDto.BookingId.Value, token);
+                    if (booking == null)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.BookingNotFound, $"{Errors.Messages.Booking.BookingNotFound} With This Id : {bookingRequestDto.BookingId.Value}");
+                    }
 
-            if (booking.GuestId != bookingRequestDto.UserId)
+                    if (booking.GuestId != bookingRequestDto.UserId)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Common.UserNotFound);
+                    }
+
+                    var room = await _roomRepository.GetByIdAsync(booking.RoomId, token);
+                    if (room == null)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Room.RoomNotFound, $"{Errors.Messages.Room.RoomNotFound} With This Id : {booking.RoomId}");
+                    }
+
+                    if (!room.CanBeBooked())
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                    }
+
+                    var canBookRoom = await _bookingRepository.IsRoomAvailableAsync(
+                        booking.RoomId,
+                        bookingRequestDto.StartDate,
+                        bookingRequestDto.EndDate,
+                        booking.Id,
+                        token);
+
+                    if (!canBookRoom)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                    }
+
+                    booking.UpdateBooking(bookingRequestDto.StartDate, bookingRequestDto.EndDate);
+
+                    await _bookingRepository.UpdateBookingAsync(booking, token);
+                    await _unitOfWork.SaveChangesAsync(token);
+
+                    return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
+                }, cancellation);
+            }
+            catch (ConcurrencyException)
             {
-                return Result<BookingSummaryDto>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Common.UserNotFound);
+                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
             }
-
-            var room = await _roomRepository.GetByIdAsync(booking.RoomId, cancellation);
-            if (room == null)
-            {
-                return Result<BookingSummaryDto>.Failure(Errors.Codes.Room.RoomNotFound, $"{Errors.Messages.Room.RoomNotFound} With This Id : {booking.RoomId}");
-            }
-
-            if (!room.CanBeBooked())
-            {
-                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
-            }
-
-            var canBookRoom = await _bookingRepository.IsRoomAvailableAsync(
-                booking.RoomId,
-                bookingRequestDto.StartDate,
-                bookingRequestDto.EndDate,
-                booking.Id,
-                cancellation);
-
-            if (!canBookRoom)
-            {
-                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
-            }
-
-            booking.UpdateBooking(bookingRequestDto.StartDate, bookingRequestDto.EndDate);
-
-            await _bookingRepository.UpdateBookingAsync(booking, cancellation);
-            await _unitOfWork.SaveChangesAsync(cancellation);
-
-            return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
         }
 
         public async Task<Result<IEnumerable<HostBookingRequestDto>>> GetPendingRequestsForHostAsync(Guid hostId, CancellationToken cancellation = default)
@@ -209,26 +235,36 @@ namespace Application.Services.Bookings
 
         public async Task<Result> ApproveBookingRequestAsync(Guid hostId, Guid bookingId, CancellationToken cancellation = default)
         {
-            var booking = await _bookingRepository.GetBookingByIdAsync(bookingId, cancellation);
-            if (booking == null)
+            try
             {
-                return Result.Failure(Errors.Codes.Booking.BookingNotFound, Errors.Messages.Booking.BookingNotFound);
-            }
+                return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                {
+                    var booking = await _bookingRepository.GetBookingByIdAsync(bookingId, token);
+                    if (booking == null)
+                    {
+                        return Result.Failure(Errors.Codes.Booking.BookingNotFound, Errors.Messages.Booking.BookingNotFound);
+                    }
 
-            if (booking.Room == null || booking.Room.HostId != hostId)
+                    if (booking.Room == null || booking.Room.HostId != hostId)
+                    {
+                        return Result.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
+                    }
+
+                    if (booking.Status != BookingStatus.Pending)
+                    {
+                        return Result.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+                    }
+
+                    booking.MarkAsConfirmed();
+                    await _bookingRepository.UpdateBookingAsync(booking, token);
+                    await _unitOfWork.SaveChangesAsync(token);
+                    return Result.Success();
+                }, cancellation);
+            }
+            catch (ConcurrencyException)
             {
-                return Result.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
+                return Result.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
             }
-
-            if (booking.Status != BookingStatus.Pending)
-            {
-                return Result.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
-            }
-
-            booking.MarkAsConfirmed();
-            await _bookingRepository.UpdateBookingAsync(booking, cancellation);
-            await _unitOfWork.SaveChangesAsync(cancellation);
-            return Result.Success();
         }
 
         public async Task<Result> RejectBookingRequestAsync(Guid hostId, Guid bookingId, CancellationToken cancellation = default)

@@ -1,4 +1,5 @@
-﻿using Application.Exceptions;
+﻿using Application.Common.Exceptions;
+using Application.Exceptions;
 using Microsoft.AspNetCore.Diagnostics;
 using Roomly_Hub.Common;
 
@@ -44,6 +45,14 @@ namespace Roomly_Hub.Middleware
                     Detail = validationEx.Message,
                     Instance = httpContext.Request.Path,
                     Extensions = { ["errors"] = validationEx.Errors }
+                },
+                ConcurrencyException => new ApiProblemDetails
+                {
+                    Code = "CONCURRENCY_ERROR",
+                    Status = StatusCodes.Status409Conflict,
+                    Title = "Concurrency Conflict",
+                    Detail = "The resource was modified by another process. Please refresh and try again.",
+                    Instance = httpContext.Request.Path
                 },
                 _ => new ApiProblemDetails
                 {

@@ -4,7 +4,6 @@ using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace Roomly_Hub.Controllers
 {
@@ -163,11 +162,11 @@ namespace Roomly_Hub.Controllers
         [HttpPost("logout")]
         public async Task<IActionResult> Logout(CancellationToken cancellationToken)
         {
-            var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            if (string.IsNullOrWhiteSpace(userIdValue) || !Guid.TryParse(userIdValue, out var userId))
+            var userId = GetUserId();
+            if (userId == null)
                 return Unauthorized();
 
-            var result = await _authService.LogoutAsync(userId, cancellationToken);
+            var result = await _authService.LogoutAsync(userId.Value, cancellationToken);
 
             if (result.IsFailure)
             {

@@ -138,11 +138,6 @@ namespace Roomly_Hub.Controllers.Rooms
         [AllowAnonymous]
         public async Task<IActionResult> Search([FromBody] RoomFilters filters, CancellationToken cancellationToken)
         {
-            var userId = GetUserId();
-            if (userId == null)
-            {
-                return Unauthorized();
-            }
             var result = await _roomService.SearchRoomsAsync(filters, cancellationToken);
             if (result.IsFailure)
             {

@@ -1,5 +1,6 @@
 using Application.Common.Results;
 using Microsoft.AspNetCore.Mvc;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace Roomly_Hub.Common
@@ -7,10 +8,11 @@ namespace Roomly_Hub.Common
     [ApiController]
     public abstract class ApiControllerBase : ControllerBase
     {
-        
         protected Guid? GetUserId()
         {
-            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                              ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                              ?? User.FindFirstValue("sub");
 
             if (string.IsNullOrWhiteSpace(userIdValue) || !Guid.TryParse(userIdValue, out var userId))
                 return null;

@@ -4,7 +4,6 @@ using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
-using System.Security.Claims;
 
 namespace Roomly_Hub.Controllers
 {
@@ -22,11 +21,11 @@ namespace Roomly_Hub.Controllers
         [HttpPost("submit")]
         public async Task<IActionResult> Submit([FromBody] SubmitKycRequestDto requestDto, CancellationToken cancellationToken)
         {
-            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrWhiteSpace(userIdValue) || !Guid.TryParse(userIdValue, out var userId))
+            var userId = GetUserId();
+            if (userId == null)
                 return Unauthorized();
 
-            var result = await _kycService.SubmitKycAsync(userId, requestDto, cancellationToken);
+            var result = await _kycService.SubmitKycAsync(userId.Value, requestDto, cancellationToken);
 
             if (result.IsFailure)
             {
@@ -47,11 +46,11 @@ namespace Roomly_Hub.Controllers
         [HttpPost("review")]
         public async Task<IActionResult> Review([FromBody] ReviewKycRequestDto requestDto, CancellationToken cancellationToken)
         {
-            var reviewerIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrWhiteSpace(reviewerIdValue) || !Guid.TryParse(reviewerIdValue, out var reviewerId))
+            var reviewerId = GetUserId();
+            if (reviewerId == null)
                 return Unauthorized();
 
-            var result = await _kycService.ReviewKycAsync(reviewerId, requestDto, cancellationToken);
+            var result = await _kycService.ReviewKycAsync(reviewerId.Value, requestDto, cancellationToken);
 
             if (result.IsFailure)
             {
