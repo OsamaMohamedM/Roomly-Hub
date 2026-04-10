@@ -117,7 +117,7 @@ namespace Application.Services.Bookings
                         bookingRequestDto.EndDate,
                         totalPrice,
                         bookingRequestDto.PaymentMethod,
-                        bookingRequestDto.PaymentStatus,
+                        PaymentStatus.Pending,
                         room.BookingMode,
                         room.Source,
                         room.CancellationPolicy);
@@ -289,6 +289,39 @@ namespace Application.Services.Bookings
             await _bookingRepository.UpdateBookingAsync(booking, cancellation);
             await _unitOfWork.SaveChangesAsync(cancellation);
             return Result.Success();
+        }
+
+        public async Task<Result<BookingSummaryDto>> MarkBookingAsPaidAsync(Guid bookingId, CancellationToken cancellation = default)
+        {
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                {
+                    var booking = await _bookingRepository.GetBookingByIdAsync(bookingId, token);
+                    if (booking == null)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.BookingNotFound, $"{Errors.Messages.Booking.BookingNotFound} With This Id : {bookingId}");
+                    }
+
+                    if (booking.Status == BookingStatus.Cancelled)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+                    }
+
+                    if (booking.PaymentStatus != PaymentStatus.Paid)
+                    {
+                        booking.MarkAsPaid();
+                        await _bookingRepository.UpdateBookingAsync(booking, token);
+                        await _unitOfWork.SaveChangesAsync(token);
+                    }
+
+                    return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
+                }, cancellation);
+            }
+            catch (ConcurrencyException)
+            {
+                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
+            }
         }
     }
 }

@@ -15,6 +15,8 @@ namespace Application.Common.Mappers
         {
             return new BookingSummaryDto
             {
+                BookingId = booking.Id,
+                GuestId = booking.GuestId,
                 Room = booking.Room,
                 PaymentMethod = booking.PaymentMethod,
                 PaymentStatus = booking.PaymentStatus,

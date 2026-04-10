@@ -5,6 +5,7 @@
         None,
         Wallet,
         Card,
-        Fawry
+        Fawry,
+        Ewallet
     }
 }

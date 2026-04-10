@@ -25,9 +25,6 @@ namespace Application.Validators.Booking
 
             RuleFor(x => x.PaymentMethod)
                 .IsInEnum().WithMessage("Invalid payment method.");
-
-            RuleFor(x => x.PaymentStatus)
-                .IsInEnum().WithMessage("Invalid payment status.");
         }
     }
 }

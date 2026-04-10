@@ -1,5 +1,6 @@
 using Application.Common.Mappers;
 using Application.DTOs;
+using Application.DTOs.Payment;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Services;
@@ -11,6 +12,7 @@ using FluentValidation;
 using Infrastructure.Persistence;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
+using Infrastructure.Services.Payment;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -20,6 +22,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
@@ -59,6 +62,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestDtoValidator
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
 builder.Services.Configure<GoogleSettings>(builder.Configuration.GetSection(GoogleSettings.SectionName));
+builder.Services.Configure<FawaterakOptions>(builder.Configuration.GetSection("Fawaterak"));
 
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IHasher, BCryptHasher>();
@@ -70,7 +74,7 @@ builder.Services.AddScoped<IKycSubmissionRepository, KycSubmissionRepository>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
+builder.Services.AddScoped<IPaymentService, FawaterakPaymentService>();
 
 builder.Services.AddScoped<IRoomMapper, RoomMapper>();
 builder.Services.AddScoped<IBookingMapper, BookingMapper>();

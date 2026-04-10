@@ -8,6 +8,8 @@ namespace Application.DTOs.Booking
         public BookingSummaryDto()
         { }
 
+        public Guid BookingId { get; set; }
+        public Guid GuestId { get; set; }
         public Room Room { get; set; }
         public DateTime CheckInDate { get; set; }
         public DateTime CheckOutDate { get; set; }
