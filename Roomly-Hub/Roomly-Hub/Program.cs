@@ -16,6 +16,7 @@ using Infrastructure.Services.Payment;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Roomly_Hub.Middleware;
 using Serilog;
 using System.Text;
@@ -98,7 +99,18 @@ builder.Services.AddScoped<IRoomModerationService, RoomModerationService>();
 builder.Services.AddScoped<IBookingServices, BookingServices>();
 
 builder.Services.AddOpenApi();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Enter your JWT token in the text box below. Example: 12345abcdef"
+    });
+});
 builder.Services.AddExceptionHandler<ExceptionHandlingMiddleware>();
 builder.Services.AddProblemDetails();
 
@@ -117,3 +129,9 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
+
+/*/
+ "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkNzRhNmI0Ni1lZGE3LTRiMTUtYjAwYi1jOThkNDM5YjQwMjEiLCJlbWFpbCI6Im9zb3NtbzI0MkBnbWFpbC5jb20iLCJuYW1lIjoib3NhbWEiLCJqdGkiOiI3ZjBiMDI4Ni05ZGIwLTRkMGYtOTY0MC03ODc0NTUwOGVlMWQiLCJyb2xlIjoiR3Vlc3QiLCJuYmYiOjE3NzU4NDg1MzksImV4cCI6MTc3NTg1MjEzOSwiaWF0IjoxNzc1ODQ4NTM5LCJpc3MiOiJSb29tbHktSHViIiwiYXVkIjoiUm9vbWx5LUh1Yi1Vc2VycyJ9.G95bFT0Z2ky_te-tmi7QrFZGBhC5VIOrdAC1sTYV4Jg",
+  "refreshToken": "N+UL3krx7kMZ7OVVWQfxiARbL3xK1rY4LIxu0y/kZJ0Nf9oq64viyZRdHAl5+BMkLNXfk25zTn6EIHAiB/6g7w==",
+
+ */

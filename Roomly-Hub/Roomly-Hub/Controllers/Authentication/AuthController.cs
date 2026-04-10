@@ -127,6 +127,11 @@ namespace Roomly_Hub.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto requestDto, CancellationToken cancellationToken)
         {
+            if (requestDto == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
             var result = await _authService.ForgotPasswordAsync(requestDto.Email, cancellationToken);
 
             if (result.IsFailure)
@@ -134,6 +139,7 @@ namespace Roomly_Hub.Controllers
                 return result.ErrorCode switch
                 {
                     Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    Errors.Codes.Auth.EmailSendFailed => StatusCode(StatusCodes.Status502BadGateway, CreateProblemDetails(result, StatusCodes.Status502BadGateway, "Email delivery failed")),
                     _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))
                 };
             }
@@ -144,6 +150,11 @@ namespace Roomly_Hub.Controllers
         [HttpPost("reset-password")]
         public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto requestDto)
         {
+            if (requestDto == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
             var result = await _authService.ResetPasswordAsync(requestDto);
 
             if (result.IsFailure)
@@ -165,6 +176,11 @@ namespace Roomly_Hub.Controllers
         [HttpPost("request-unlock")]
         public async Task<IActionResult> RequestUnlock([FromBody] RequestUnlockDto requestDto, CancellationToken cancellationToken)
         {
+            if (requestDto == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
             await _authService.RequestAccountUnlockAsync(requestDto, cancellationToken);
             return Ok();
         }
@@ -176,6 +192,11 @@ namespace Roomly_Hub.Controllers
         [HttpPost("unlock-account")]
         public async Task<IActionResult> UnlockAccount([FromBody] UnlockAccountDto requestDto, CancellationToken cancellationToken)
         {
+            if (requestDto == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
             var result = await _authService.UnlockAccountAsync(requestDto, cancellationToken);
 
             if (result.IsFailure)

@@ -266,22 +266,5 @@ namespace Infrastructure.Services.Payment
             var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(queryParam));
             return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
         }
-
-        private static string NormalizeEmailDots(string email)
-        {
-            if (string.IsNullOrEmpty(email))
-                return email;
-
-            int atIndex = email.IndexOf('@');
-            if (atIndex < 0)
-                return email;
-
-            string localPart = email.Substring(0, atIndex);
-            string domainPart = email.Substring(atIndex);
-
-            localPart = System.Text.RegularExpressions.Regex.Replace(localPart, @"\.+", ".");
-
-            return localPart + domainPart;
-        }
     }
 }

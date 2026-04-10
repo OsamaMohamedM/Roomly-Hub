@@ -8,7 +8,7 @@ using Domain.Enums;
 using Domain.Interfaces.Repositories;
 using Domain.ValueObjects;
 using FluentValidation;
-using Serilog;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services
 {
@@ -27,6 +27,7 @@ namespace Application.Services
         private readonly IOtpService _otpService;
         private readonly IValidator<RequestUnlockDto> _requestUnlockValidator;
         private readonly IValidator<UnlockAccountDto> _unlockAccountValidator;
+        private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             IRegisterService registerService,
@@ -41,7 +42,8 @@ namespace Application.Services
             IOtpService otpService,
             IValidator<RequestUnlockDto> requestUnlockValidator,
             IValidator<UnlockAccountDto> unlockAccountValidator,
-            Microsoft.Extensions.Options.IOptions<JwtSettings> jwtSettings)
+            Microsoft.Extensions.Options.IOptions<JwtSettings> jwtSettings,
+            ILogger<AuthService> logger)
         {
             _registerService = registerService;
             _loginService = loginService;
@@ -56,6 +58,7 @@ namespace Application.Services
             _otpService = otpService;
             _requestUnlockValidator = requestUnlockValidator;
             _unlockAccountValidator = unlockAccountValidator;
+            _logger = logger;
         }
 
         public Task<Result<RegisterResponseDto>> RegisterAsync(RegisterRequestDto requestDto, CancellationToken cancellationToken = default)
@@ -149,7 +152,7 @@ namespace Application.Services
             var otpCode = _otpService.GenerateOtp();
             var otp = Otp.Create(user.Id, _hasher.Hash(otpCode), OtpPurpose.PasswordReset, DateTime.UtcNow.AddMinutes(25));
             user.AddOtp(otp);
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
             try
             {
                 await _emailService.SendEmailAsync(
@@ -160,7 +163,8 @@ namespace Application.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to send email: {ex.Message}");
+                _logger.LogError(ex, "Failed to send forgot-password email for user {UserId}", user.Id);
+                return Result.Failure(Errors.Codes.Auth.EmailSendFailed, Errors.Messages.Auth.EmailSendFailed);
             }
 
             return Result.Success();
@@ -188,9 +192,6 @@ namespace Application.Services
             return Result.Success();
         }
 
-        /// <summary>
-        /// Requests an account unlock OTP and sends it to the user's email.
-        /// </summary>
         public async Task<Result> RequestAccountUnlockAsync(RequestUnlockDto dto, CancellationToken cancellationToken)
         {
             var validation = await _requestUnlockValidator.ValidateAsync(dto, cancellationToken);
@@ -223,19 +224,16 @@ namespace Application.Services
                     $"<h1>Hi, {user.Name}</h1><p>Your unlock code is: <b>{otpCode}</b></p><p>This code expires in 25 minutes.</p>",
                     cancellationToken);
 
-                Log.Information("Account unlock OTP sent for user {UserId}", user.Id);
+                _logger.LogInformation("Account unlock OTP sent for user {UserId}", user.Id);
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Failed to send account unlock OTP for user {UserId}", user.Id);
+                _logger.LogError(ex, "Failed to send account unlock OTP for user {UserId}", user.Id);
             }
 
             return Result.Success();
         }
 
-        /// <summary>
-        /// Unlocks a locked account using a valid unlock OTP.
-        /// </summary>
         public async Task<Result> UnlockAccountAsync(UnlockAccountDto dto, CancellationToken cancellationToken)
         {
             var validation = await _unlockAccountValidator.ValidateAsync(dto, cancellationToken);
@@ -276,7 +274,7 @@ namespace Application.Services
             user.RevokeAllRefreshTokens();
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            Log.Information("Account unlocked for user {UserId}", user.Id);
+            _logger.LogInformation("Account unlocked for user {UserId}", user.Id);
             return Result.Success();
         }
     }

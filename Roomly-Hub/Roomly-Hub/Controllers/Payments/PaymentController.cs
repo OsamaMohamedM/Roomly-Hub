@@ -54,6 +54,11 @@ namespace Roomly_Hub.Controllers.Payments
                 return Unauthorized();
             }
 
+            if (requestDto == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
             _logger.LogInformation("Creating invoice for booking {BookingId} by user {UserId}", requestDto.BookingId, userId.Value);
             var result = await _bookingServices.CreateBookingPaymentInvoiceAsync(userId.Value, requestDto, cancellationToken);
 
@@ -196,6 +201,11 @@ namespace Roomly_Hub.Controllers.Payments
         [HttpPost("webhook/failed")]
         public IActionResult HandleFailedWebhook([FromBody] FaliledWebHook webhook)
         {
+            if (webhook == null)
+            {
+                return BadRequest("Webhook payload is required.");
+            }
+
             _logger.LogWarning("Failed payment webhook received for invoice {InvoiceId} with key {InvoiceKey}. Error: {ErrorMessage}", webhook.InvoiceId, webhook.InvoiceKey, webhook.ErrorMessage);
             return Ok();
         }
@@ -204,6 +214,11 @@ namespace Roomly_Hub.Controllers.Payments
         [HttpPost("webhook/cancel")]
         public IActionResult HandleCancelWebhook([FromBody] CancelTransactionModel cancelTransaction)
         {
+            if (cancelTransaction == null)
+            {
+                return BadRequest("Cancellation payload is required.");
+            }
+
             if (!_paymentService.VerifyCancelTransaction(cancelTransaction))
             {
                 return Unauthorized();

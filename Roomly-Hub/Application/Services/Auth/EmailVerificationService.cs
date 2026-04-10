@@ -6,6 +6,7 @@ using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Domain.Enums;
 using Domain.Interfaces.Repositories;
+using Domain.ValueObjects;
 using FluentValidation;
 
 namespace Application.Services
@@ -37,8 +38,8 @@ namespace Application.Services
             var validationResult = await _validator.ValidateAsync(otpVerifyDto, cancellationToken);
             if (!validationResult.IsValid)
                 return Result<EmailVerifyResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed, ValidationHelper.ToErrorDictionary(validationResult));
-
-            var user = await _userRepository.GetByIdWithOtpsAsync(otpVerifyDto.UserId, cancellationToken);
+            var userEmail = Email.Create(otpVerifyDto.Email);
+            var user = await _userRepository.GetByEmailAsync(userEmail, cancellationToken);
             if (user is null)
                 return Result<EmailVerifyResponseDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
 

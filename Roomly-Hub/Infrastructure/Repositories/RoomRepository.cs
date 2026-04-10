@@ -183,11 +183,11 @@ namespace Infrastructure.Repositories
 
             if (!string.IsNullOrWhiteSpace(filters.SearchQuery))
             {
-                var search = filters.SearchQuery.Trim().ToLower();
+                var search = $"%{filters.SearchQuery.Trim()}%";
                 rooms = rooms.Where(r =>
-                    r.Title.ToLower().Contains(search) ||
-                    r.Description.ToLower().Contains(search) ||
-                    r.Address.City.ToLower().Contains(search));
+                    EF.Functions.ILike(r.Title, search) ||
+                    EF.Functions.ILike(r.Description, search) ||
+                    EF.Functions.ILike(r.Address.City, search));
             }
 
             return rooms;

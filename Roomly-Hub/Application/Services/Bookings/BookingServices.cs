@@ -127,7 +127,7 @@ namespace Application.Services.Bookings
                             bookingRequestDto.RoomId,
                             bookingRequestDto.StartDate,
                             bookingRequestDto.EndDate,
-                            new[] { BookingStatus.Confirmed, BookingStatus.Completed },
+                            [BookingStatus.Confirmed, BookingStatus.Completed],
                             null,
                             token)
                         : await _bookingRepository.IsRoomAvailableAsync(
@@ -141,7 +141,13 @@ namespace Application.Services.Bookings
                         return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
 
-                    var totalPrice = room.PricePerNight * (decimal)(bookingRequestDto.EndDate - bookingRequestDto.StartDate).TotalDays;
+                    var nights = (bookingRequestDto.EndDate.Date - bookingRequestDto.StartDate.Date).Days;
+                    if (nights <= 0)
+                    {
+                        return Result<string>.Failure(Errors.Codes.Booking.InvalidBookingDateRange, Errors.Messages.Booking.InvalidBookingDateRange);
+                    }
+
+                    var totalPrice = room.PricePerNight * nights;
 
                     var booking = Booking.CreateBooking(
                         bookingRequestDto.UserId,

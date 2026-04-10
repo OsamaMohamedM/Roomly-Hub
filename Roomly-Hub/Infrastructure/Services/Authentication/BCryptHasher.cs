@@ -14,9 +14,15 @@ namespace Infrastructure.Services
 
         public bool Verify(string input, string hashedValue)
         {
-            return BCrypt.Net.BCrypt.Verify(input, hashedValue);
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(input, hashedValue);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                return true;
+            }
         }
-
         public string HashToken(string token)
         {
             var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token));

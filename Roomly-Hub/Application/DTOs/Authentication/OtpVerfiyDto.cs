@@ -3,15 +3,15 @@
     public class OtpVerifyDto
     {
         public string Otp { get; set; } = string.Empty;
-        public Guid UserId { get; set; }
+        public string Email { get; set; }
 
         public OtpVerifyDto()
         { }
 
-        public OtpVerifyDto(string otp, Guid userId)
+        public OtpVerifyDto(string otp, string email)
         {
             Otp = otp;
-            UserId = userId;
+            Email = email;
         }
     }
 }

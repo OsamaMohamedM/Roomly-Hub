@@ -1,4 +1,3 @@
-using Domain.Entities.Rooms;
 using Domain.enums.Room;
 using Domain.ValueObjects;
 
@@ -15,6 +14,6 @@ namespace Application.DTOs
         public TimeSpan CheckInTime { get; set; }
         public TimeSpan CheckOutTime { get; set; }
         public bool FreeCancellation { get; set; }
-        public List<AmenityType> Amenities { get; set; } = [];
+        public List<string> Amenities { get; set; } = [];
     }
 }

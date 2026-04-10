@@ -25,6 +25,7 @@ namespace Infrastructure.Repositories
         {
             return await _context.Users
                 .Include(u => u.RefreshTokens.Where(t => !t.RevokedAt.HasValue && t.ExpiresAt > DateTime.UtcNow))
+                .Include(u => u.Otps)
                 .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
         }
 

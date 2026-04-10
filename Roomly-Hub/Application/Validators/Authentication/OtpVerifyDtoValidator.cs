@@ -7,8 +7,8 @@ namespace Application.Validators
     {
         public OtpVerifyDtoValidator()
         {
-            RuleFor(x => x.UserId)
-                .NotEmpty().WithMessage("User ID is required.");
+            RuleFor(x => x.Email)
+                .NotEmpty().WithMessage("Email is required.");
 
             RuleFor(x => x.Otp)
                 .NotEmpty().WithMessage("OTP is required.")
