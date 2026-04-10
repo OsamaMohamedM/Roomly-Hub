@@ -4,7 +4,6 @@ using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
-using System.IdentityModel.Tokens.Jwt;
 
 namespace Roomly_Hub.Controllers.Rooms
 {
@@ -22,7 +21,10 @@ namespace Roomly_Hub.Controllers.Rooms
         [HttpGet("pending")]
         public async Task<IActionResult> GetPending(CancellationToken cancellationToken)
         {
-            var result = await _roomModerationService.GetPendingRoomsAsync(cancellationToken);
+            var moderatorId = GetUserId();
+            if (moderatorId == Guid.Empty || moderatorId == null)
+                return Unauthorized();
+            var result = await _roomModerationService.GetPendingRoomsAsync((Guid)moderatorId, cancellationToken);
             if (result.IsFailure)
                 return BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"));
 
@@ -32,10 +34,11 @@ namespace Roomly_Hub.Controllers.Rooms
         [HttpPost("{roomId:guid}/approve")]
         public async Task<IActionResult> Approve(Guid roomId, CancellationToken cancellationToken)
         {
-            if (!TryGetUserId(out var moderatorId))
+            var moderatorId = GetUserId();
+            if (moderatorId == Guid.Empty || moderatorId == null)
                 return Unauthorized();
 
-            var result = await _roomModerationService.ApproveRoomAsync(moderatorId, roomId, cancellationToken);
+            var result = await _roomModerationService.ApproveRoomAsync((Guid)moderatorId, roomId, cancellationToken);
             if (result.IsFailure)
             {
                 return result.ErrorCode switch
@@ -54,10 +57,11 @@ namespace Roomly_Hub.Controllers.Rooms
         [HttpPost("{roomId:guid}/reject")]
         public async Task<IActionResult> Reject(Guid roomId, [FromBody] RejectRoomRequestDto dto, CancellationToken cancellationToken)
         {
-            if (!TryGetUserId(out var moderatorId))
+            var moderatorId = GetUserId();
+            if (moderatorId == Guid.Empty || moderatorId == null)
                 return Unauthorized();
 
-            var result = await _roomModerationService.RejectRoomAsync(moderatorId, roomId, dto.Reason, cancellationToken);
+            var result = await _roomModerationService.RejectRoomAsync((Guid)moderatorId, roomId, dto.Reason, cancellationToken);
             if (result.IsFailure)
             {
                 return result.ErrorCode switch
@@ -71,12 +75,6 @@ namespace Roomly_Hub.Controllers.Rooms
             }
 
             return Ok();
-        }
-
-        private bool TryGetUserId(out Guid userId)
-        {
-            var userIdValue = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
-            return Guid.TryParse(userIdValue, out userId);
         }
     }
 }

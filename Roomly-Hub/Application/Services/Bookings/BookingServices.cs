@@ -117,6 +117,11 @@ namespace Application.Services.Bookings
                         return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
 
+                    if (HasBlockedDates(room, bookingRequestDto.StartDate, bookingRequestDto.EndDate))
+                    {
+                        return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                    }
+
                     var canBookRoom = room.BookingMode == BookingMode.RequestAndApprove
                         ? await _bookingRepository.IsRoomAvailableAsync(
                             bookingRequestDto.RoomId,
@@ -302,6 +307,11 @@ namespace Application.Services.Bookings
                         return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
 
+                    if (HasBlockedDates(room, bookingRequestDto.StartDate, bookingRequestDto.EndDate))
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                    }
+
                     var canBookRoom = room.BookingMode == BookingMode.RequestAndApprove
                         ? await _bookingRepository.IsRoomAvailableAsync(
                             booking.RoomId,
@@ -369,6 +379,19 @@ namespace Application.Services.Bookings
                         return Result.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
                     }
 
+                    var canConfirmBooking = await _bookingRepository.IsRoomAvailableAsync(
+                        booking.RoomId,
+                        booking.CheckInDate,
+                        booking.CheckOutDate,
+                        new[] { BookingStatus.Confirmed, BookingStatus.Completed },
+                        booking.Id,
+                        token);
+
+                    if (!canConfirmBooking)
+                    {
+                        return Result.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                    }
+
                     booking.MarkAsConfirmed();
 
                     var competingRequests = await _bookingRepository.GetOverlappingPendingRequestsAsync(
@@ -426,6 +449,7 @@ namespace Application.Services.Bookings
         public async Task<Result<BookingSummaryDto>> MarkBookingAsPaidAsync(Guid bookingId, CancellationToken cancellation = default)
         {
             _logger.LogInformation("Marking booking {BookingId} as paid", bookingId);
+
             try
             {
                 return await _unitOfWork.ExecuteInTransactionAsync(async token =>
@@ -457,6 +481,17 @@ namespace Application.Services.Bookings
                 _logger.LogWarning("Booking payment concurrency conflict for booking {BookingId}", bookingId);
                 return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
             }
+        }
+
+        private static bool HasBlockedDates(Domain.Entities.Rooms.Room room, DateTime checkIn, DateTime checkOut)
+        {
+            var checkInDate = DateOnly.FromDateTime(checkIn.Date);
+            var checkOutDate = DateOnly.FromDateTime(checkOut.Date);
+
+            return room.Availabilities.Any(a =>
+                !a.IsDeleted &&
+                a.BlockedDate >= checkInDate &&
+                a.BlockedDate < checkOutDate);
         }
     }
 }

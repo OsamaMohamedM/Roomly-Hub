@@ -17,8 +17,8 @@ namespace Application.Services.RoomCRUD
         private readonly IRoomMapper _roomMapper;
 
         public RoomModerationService(
-            IRoomRepository roomRepository, 
-            IUserRepository userRepository, 
+            IRoomRepository roomRepository,
+            IUserRepository userRepository,
             IUnitOfWork unitOfWork,
             IRoomMapper roomMapper)
         {
@@ -58,11 +58,17 @@ namespace Application.Services.RoomCRUD
             return Result.Success();
         }
 
-        public async Task<Result<List<PendingRoomDto>>> GetPendingRoomsAsync(CancellationToken cancellationToken = default)
+        public async Task<Result<List<PendingRoomDto>>> GetPendingRoomsAsync(Guid moderatorId, CancellationToken cancellationToken = default)
         {
+            var moderator = await _userRepository.GetByIdAsync(moderatorId, cancellationToken);
+            if (moderator is null)
+                return Result<List<PendingRoomDto>>.Failure(Errors.Codes.Room.ModeratorNotFound, Errors.Messages.Room.ModeratorNotFound);
+
+            if (!moderator.HasAdminRole(AdminRole.Moderator) && !moderator.HasAdminRole(AdminRole.SuperAdmin))
+                return Result<List<PendingRoomDto>>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
+
             var rooms = await _roomRepository.GetPendingReviewRoomsAsync(cancellationToken);
-            var pendingRoomDTOs = rooms.Select(r => _roomMapper.ToPendingRoomDto(r)).ToList();
-            return Result<List<PendingRoomDto>>.Success(pendingRoomDTOs);
+            return Result<List<PendingRoomDto>>.Success(rooms.Select(_roomMapper.ToPendingRoomDto).ToList());
         }
 
         public async Task<Result> RejectRoomAsync(Guid moderatorId, Guid roomId, string reason, CancellationToken cancellationToken = default)

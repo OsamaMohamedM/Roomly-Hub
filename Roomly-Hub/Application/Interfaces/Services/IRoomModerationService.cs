@@ -5,7 +5,7 @@ namespace Application.Interfaces.Services
 {
     public interface IRoomModerationService
     {
-        Task<Result<List<PendingRoomDto>>> GetPendingRoomsAsync(CancellationToken cancellationToken = default);
+        Task<Result<List<PendingRoomDto>>> GetPendingRoomsAsync(Guid moderatorId, CancellationToken cancellationToken = default);
 
         Task<Result> ApproveRoomAsync(Guid moderatorId, Guid roomId, CancellationToken cancellationToken = default);
 

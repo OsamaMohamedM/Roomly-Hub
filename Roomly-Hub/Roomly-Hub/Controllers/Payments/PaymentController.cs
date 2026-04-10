@@ -1,6 +1,7 @@
 using Application.DTOs.Booking;
 using Application.DTOs.Payment;
 using Application.Interfaces.Services;
+using Domain.enums.Booking;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -95,6 +96,13 @@ namespace Roomly_Hub.Controllers.Payments
             {
                 _logger.LogWarning("Webhook signature verification failed for invoice {InvoiceId}", webhook.InvoiceId);
                 return Unauthorized();
+            }
+
+            if (!string.Equals(webhook.InvoiceStatus, "Paid", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(webhook.InvoiceStatus, "Success", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Webhook ignored for invoice {InvoiceId} due to non-success status {InvoiceStatus}", webhook.InvoiceId, webhook.InvoiceStatus);
+                return BadRequest("Webhook status is not successful.");
             }
 
             var orderId = webhook.Payload?.OrderId;

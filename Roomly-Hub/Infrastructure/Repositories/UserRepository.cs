@@ -24,10 +24,8 @@ namespace Infrastructure.Repositories
         public async Task<User?> GetByEmailAsync(Email email, CancellationToken cancellationToken = default)
         {
             return await _context.Users
-                .Include(u => u.RefreshTokens
-                .Where(t => !t.RevokedAt.HasValue
-                 && t.ExpiresAt > DateTime.UtcNow))
-                .FirstOrDefaultAsync(u => u.Email == email);
+                .Include(u => u.RefreshTokens.Where(t => !t.RevokedAt.HasValue && t.ExpiresAt > DateTime.UtcNow))
+                .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
         }
 
         public async Task<User?> GetByIdWithOtpsAsync(Guid id, CancellationToken cancellationToken = default)

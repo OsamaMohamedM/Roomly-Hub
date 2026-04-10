@@ -80,8 +80,8 @@ namespace Application.Services
 
         public async Task<Result<TokenResponseDto>> GenerateNewAccessTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
-            if (refreshToken == string.Empty)
-                return Result<TokenResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                return Result<TokenResponseDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
 
             var tokenHash = _hasher.HashToken(refreshToken);
 
