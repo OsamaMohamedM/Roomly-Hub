@@ -143,6 +143,23 @@ namespace Application.Services
             return Result<KycSubmissionResponseDto>.Success(Map(submission));
         }
 
+        public async Task<Result<IEnumerable<KycSubmissionResponseDto>>> GetPendingKycSubmissionsAsync(Guid reviewerId, CancellationToken cancellationToken = default)
+        {
+            if (reviewerId == Guid.Empty)
+                return Result<IEnumerable<KycSubmissionResponseDto>>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.UserIdRequired);
+
+            var reviewer = await _userRepository.GetByIdAsync(reviewerId, cancellationToken);
+            if (reviewer is null)
+                return Result<IEnumerable<KycSubmissionResponseDto>>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
+
+            if (reviewer.AdminRole == AdminRole.None)
+                return Result<IEnumerable<KycSubmissionResponseDto>>.Failure(Errors.Codes.Kyc.ForbiddenReview, Errors.Messages.Kyc.ForbiddenReview);
+
+            var pending = await _kycSubmissionRepository.GetPendingSubmissionsAsync(cancellationToken);
+            var response = pending.Select(Map).ToList();
+            return Result<IEnumerable<KycSubmissionResponseDto>>.Success(response);
+        }
+
         private static KycSubmissionResponseDto Map(KycSubmission submission)
         {
             return new KycSubmissionResponseDto

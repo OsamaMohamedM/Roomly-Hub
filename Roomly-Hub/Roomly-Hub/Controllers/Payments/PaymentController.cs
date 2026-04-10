@@ -74,6 +74,57 @@ namespace Roomly_Hub.Controllers.Payments
             return Ok(result.Value);
         }
 
+        [HttpGet("bookings/{bookingId:guid}/status")]
+        public async Task<IActionResult> GetBookingPaymentStatus(Guid bookingId, CancellationToken cancellationToken)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _bookingServices.GetBookingSummaryAsync(bookingId, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            var booking = result.Value;
+            if (booking.GuestId != userId.Value)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, "You are not allowed to access this booking payment status.");
+            }
+
+            return Ok(new BookingPaymentStatusDto
+            {
+                BookingId = booking.BookingId,
+                BookingStatus = booking.Status,
+                PaymentStatus = booking.PaymentStatus
+            });
+        }
+
+        [HttpPost("bookings/{bookingId:guid}/refund")]
+        public async Task<IActionResult> RefundBookingPayment(Guid bookingId, CancellationToken cancellationToken)
+        {
+            var result = await _bookingServices.MarkBookingAsRefundedAsync(bookingId, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
+                    var code when code == Application.Common.Constants.Errors.Codes.Booking.InvalidBookingState => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Invalid booking state")),
+                    var code when code == Application.Common.Constants.Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
         [AllowAnonymous]
         [HttpPost("webhook")]
         public async Task<IActionResult> HandleWebhook([FromBody] WebHookModel webhook, CancellationToken cancellationToken)
@@ -138,6 +189,27 @@ namespace Roomly_Hub.Controllers.Payments
             }
 
             _logger.LogInformation("Webhook processed successfully for booking {BookingId}", bookingId);
+            return Ok();
+        }
+
+        [AllowAnonymous]
+        [HttpPost("webhook/failed")]
+        public IActionResult HandleFailedWebhook([FromBody] FaliledWebHook webhook)
+        {
+            _logger.LogWarning("Failed payment webhook received for invoice {InvoiceId} with key {InvoiceKey}. Error: {ErrorMessage}", webhook.InvoiceId, webhook.InvoiceKey, webhook.ErrorMessage);
+            return Ok();
+        }
+
+        [AllowAnonymous]
+        [HttpPost("webhook/cancel")]
+        public IActionResult HandleCancelWebhook([FromBody] CancelTransactionModel cancelTransaction)
+        {
+            if (!_paymentService.VerifyCancelTransaction(cancelTransaction))
+            {
+                return Unauthorized();
+            }
+
+            _logger.LogInformation("Cancellation webhook processed for reference {ReferenceId}", cancelTransaction.ReferenceId);
             return Ok();
         }
     }

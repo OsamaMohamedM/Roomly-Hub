@@ -66,5 +66,27 @@ namespace Roomly_Hub.Controllers
 
             return Ok(result.Value);
         }
+
+        [HttpGet("pending")]
+        public async Task<IActionResult> GetPending(CancellationToken cancellationToken)
+        {
+            var reviewerId = GetUserId();
+            if (reviewerId == null)
+                return Unauthorized();
+
+            var result = await _kycService.GetPendingKycSubmissionsAsync(reviewerId.Value, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    Errors.Codes.Common.UserNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "User not found")),
+                    Errors.Codes.Kyc.ForbiddenReview => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Forbidden")),
+                    _ => StatusCode(StatusCodes.Status500InternalServerError, CreateProblemDetails(result, StatusCodes.Status500InternalServerError, "Unexpected error"))
+                };
+            }
+
+            return Ok(result.Value);
+        }
     }
 }

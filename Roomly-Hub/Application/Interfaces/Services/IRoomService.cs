@@ -15,6 +15,14 @@ namespace Application.Interfaces.Services
 
         Task<Result> DeactivateRoomAsync(Guid hostId, Guid roomId, CancellationToken cancellationToken = default);
 
+        Task<Result> ActivateRoomAsync(Guid hostId, Guid roomId, CancellationToken cancellationToken = default);
+
+        Task<Result> DeleteRoomAsync(Guid hostId, Guid roomId, CancellationToken cancellationToken = default);
+
+        Task<Result<RoomPhotoDto>> AddRoomPhotoAsync(Guid hostId, Guid roomId, AddRoomPhotoRequestDto dto, CancellationToken cancellationToken = default);
+
+        Task<Result> RemoveRoomPhotoAsync(Guid hostId, Guid roomId, Guid photoId, CancellationToken cancellationToken = default);
+
         Task<Result<RoomResponseDto>> GetRoomByIdAsync(Guid roomId, CancellationToken cancellationToken = default);
 
         Task<Result<PagedResult<RoomSummaryDto>>> SearchRoomsAsync(RoomFilters filters, CancellationToken cancellationToken = default);

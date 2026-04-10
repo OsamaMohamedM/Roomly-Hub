@@ -8,5 +8,7 @@ namespace Application.Interfaces.Services
         Task<Result<KycSubmissionResponseDto>> SubmitKycAsync(Guid userId, SubmitKycRequestDto requestDto, CancellationToken cancellationToken = default);
 
         Task<Result<KycSubmissionResponseDto>> ReviewKycAsync(Guid reviewerId, ReviewKycRequestDto requestDto, CancellationToken cancellationToken = default);
+
+        Task<Result<IEnumerable<KycSubmissionResponseDto>>> GetPendingKycSubmissionsAsync(Guid reviewerId, CancellationToken cancellationToken = default);
     }
 }

@@ -31,6 +31,20 @@ namespace Infrastructure.Repositories
                 .ToListAsync(cancellation);
         }
 
+        public async Task<IEnumerable<Booking>> GetRoomBookingsForHostAsync(Guid hostId, Guid roomId, DateTime from, DateTime to, CancellationToken cancellation = default)
+        {
+            return await _context.Set<Booking>()
+                .Include(b => b.Room)
+                .Where(b => b.RoomId == roomId
+                            && b.Room.HostId == hostId
+                            && !b.IsDeleted
+                            && b.Status != BookingStatus.Cancelled
+                            && from < b.CheckOutDate
+                            && to > b.CheckInDate)
+                .OrderBy(b => b.CheckInDate)
+                .ToListAsync(cancellation);
+        }
+
         public async Task<IEnumerable<Booking>> GetPendingRequestsByHostIdAsync(Guid hostId, CancellationToken cancellation = default)
         {
             return await _context.Set<Booking>()

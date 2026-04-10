@@ -36,6 +36,28 @@ namespace Roomly_Hub.Controllers.Bookings
             return Ok(result.Value);
         }
 
+        [HttpGet("host/rooms/{roomId:guid}/calendar")]
+        public async Task<IActionResult> GetHostRoomCalendar(Guid roomId, [FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken cancellationToken)
+        {
+            var hostId = GetUserId();
+            if (hostId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _bookingServices.GetHostRoomBookingsAsync(hostId.Value, roomId, from, to, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    var code when code == Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
         [HttpPost("{bookingId:guid}/approve")]
         public async Task<IActionResult> ApproveBookingRequest(Guid bookingId, CancellationToken cancellationToken)
         {

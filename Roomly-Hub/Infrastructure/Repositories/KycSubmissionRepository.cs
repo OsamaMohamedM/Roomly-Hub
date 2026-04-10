@@ -35,6 +35,14 @@ namespace Infrastructure.Repositories
                 .ToListAsync(cancellationToken);
         }
 
+        public async Task<IReadOnlyList<KycSubmission>> GetPendingSubmissionsAsync(CancellationToken cancellationToken = default)
+        {
+            return await _context.KycSubmissions
+                .Where(x => x.Status == SubmissionStatus.Pending && !x.IsDeleted)
+                .OrderByDescending(x => x.SubmittedAt)
+                .ToListAsync(cancellationToken);
+        }
+
         public async Task AddAsync(KycSubmission submission, CancellationToken cancellationToken = default)
         {
             await _context.KycSubmissions.AddAsync(submission, cancellationToken);

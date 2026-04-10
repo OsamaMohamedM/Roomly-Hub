@@ -483,6 +483,51 @@ namespace Application.Services.Bookings
             }
         }
 
+        public async Task<Result<BookingSummaryDto>> MarkBookingAsRefundedAsync(Guid bookingId, CancellationToken cancellation = default)
+        {
+            _logger.LogInformation("Marking booking {BookingId} as refunded", bookingId);
+
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                {
+                    var booking = await _bookingRepository.GetBookingByIdAsync(bookingId, token);
+                    if (booking == null)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.BookingNotFound, $"{Errors.Messages.Booking.BookingNotFound} With This Id : {bookingId}");
+                    }
+
+                    if (booking.PaymentStatus != PaymentStatus.Paid)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+                    }
+
+                    booking.MarkAsRefunded();
+                    await _bookingRepository.UpdateBookingAsync(booking, token);
+                    await _unitOfWork.SaveChangesAsync(token);
+
+                    return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
+                }, cancellation);
+            }
+            catch (ConcurrencyException)
+            {
+                _logger.LogWarning("Booking refund concurrency conflict for booking {BookingId}", bookingId);
+                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
+            }
+        }
+
+        public async Task<Result<IEnumerable<HostBookingRequestDto>>> GetHostRoomBookingsAsync(Guid hostId, Guid roomId, DateTime from, DateTime to, CancellationToken cancellation = default)
+        {
+            if (roomId == Guid.Empty || from >= to)
+            {
+                return Result<IEnumerable<HostBookingRequestDto>>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
+            }
+
+            var bookings = await _bookingRepository.GetRoomBookingsForHostAsync(hostId, roomId, from, to, cancellation);
+            var result = bookings.Select(_bookingMapper.ToHostRequestDto).ToList();
+            return Result<IEnumerable<HostBookingRequestDto>>.Success(result);
+        }
+
         private static bool HasBlockedDates(Domain.Entities.Rooms.Room room, DateTime checkIn, DateTime checkOut)
         {
             var checkInDate = DateOnly.FromDateTime(checkIn.Date);

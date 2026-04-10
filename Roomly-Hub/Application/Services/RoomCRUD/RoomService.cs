@@ -19,19 +19,22 @@ namespace Application.Services.RoomCRUD
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRoomMapper _roomMapper;
         private readonly IValidator<BlockDatesRequestDto> _blockDatesRequestValidator;
+        private readonly IValidator<AddRoomPhotoRequestDto> _addRoomPhotoValidator;
 
         public RoomService(
             IRoomRepository roomRepository,
             IUserRepository userRepository,
             IUnitOfWork unitOfWork,
             IRoomMapper roomMapper,
-            IValidator<BlockDatesRequestDto> blockDatesRequestValidator)
+            IValidator<BlockDatesRequestDto> blockDatesRequestValidator,
+            IValidator<AddRoomPhotoRequestDto> addRoomPhotoValidator)
         {
             _roomRepository = roomRepository;
             _userRepository = userRepository;
             _unitOfWork = unitOfWork;
             _roomMapper = roomMapper;
             _blockDatesRequestValidator = blockDatesRequestValidator;
+            _addRoomPhotoValidator = addRoomPhotoValidator;
         }
 
         public async Task<Result<RoomResponseDto>> CreateRoomAsync(Guid hostId, CreateRoomRequestDto dto, CancellationToken cancellationToken = default)
@@ -76,6 +79,94 @@ namespace Application.Services.RoomCRUD
                 return Result.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeDeactivated);
 
             room.Deactivate();
+            await _roomRepository.UpdateAsync(room, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result.Success();
+        }
+
+        public async Task<Result> ActivateRoomAsync(Guid hostId, Guid roomId, CancellationToken cancellationToken = default)
+        {
+            var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room == null)
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
+            if (room.HostId != hostId)
+                return Result.Failure(Errors.Codes.Common.PermissionDenied, Errors.Messages.Room.CannotUpdateListing);
+
+            if (room.Status != RoomListingStatus.Inactive)
+                return Result.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeEdited);
+
+            room.Activate();
+            await _roomRepository.UpdateAsync(room, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result.Success();
+        }
+
+        public async Task<Result> DeleteRoomAsync(Guid hostId, Guid roomId, CancellationToken cancellationToken = default)
+        {
+            var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room == null)
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
+            if (room.HostId != hostId)
+                return Result.Failure(Errors.Codes.Common.PermissionDenied, Errors.Messages.Room.CannotUpdateListing);
+
+            if (!room.CanBeDeleted())
+                return Result.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeEdited);
+
+            await _roomRepository.DeleteAsync(room, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return Result.Success();
+        }
+
+        public async Task<Result<RoomPhotoDto>> AddRoomPhotoAsync(Guid hostId, Guid roomId, AddRoomPhotoRequestDto dto, CancellationToken cancellationToken = default)
+        {
+            if (dto == null)
+                return Result<RoomPhotoDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
+
+            var validationResult = await _addRoomPhotoValidator.ValidateAsync(dto, cancellationToken);
+            if (!validationResult.IsValid)
+                return Result<RoomPhotoDto>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
+
+            var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room == null)
+                return Result<RoomPhotoDto>.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
+            if (room.HostId != hostId)
+                return Result<RoomPhotoDto>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
+
+            var photo = new RoomPhoto
+            {
+                RoomId = room.Id,
+                Url = dto.Url.Trim(),
+                Description = dto.Description?.Trim() ?? string.Empty
+            };
+
+            room.AddPhoto(photo);
+            await _roomRepository.UpdateAsync(room, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return Result<RoomPhotoDto>.Success(new RoomPhotoDto
+            {
+                Id = photo.Id,
+                Url = photo.Url,
+                DisplayOrder = room.Photos.Count
+            });
+        }
+
+        public async Task<Result> RemoveRoomPhotoAsync(Guid hostId, Guid roomId, Guid photoId, CancellationToken cancellationToken = default)
+        {
+            if (photoId == Guid.Empty)
+                return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
+
+            var room = await _roomRepository.GetByIdAsync(roomId, cancellationToken);
+            if (room == null)
+                return Result.Failure(Errors.Codes.Room.RoomNotFound, Errors.Messages.Room.RoomNotFound);
+
+            if (room.HostId != hostId)
+                return Result.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
+
+            room.RemovePhoto(photoId);
             await _roomRepository.UpdateAsync(room, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return Result.Success();

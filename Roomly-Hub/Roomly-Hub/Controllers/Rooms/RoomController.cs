@@ -89,6 +89,102 @@ namespace Roomly_Hub.Controllers.Rooms
             return Ok();
         }
 
+        [HttpPost("{roomId:guid}/activate")]
+        public async Task<IActionResult> Activate(Guid roomId, CancellationToken cancellationToken)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _roomService.ActivateRoomAsync((Guid)userId, roomId, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
+                    Errors.Codes.Common.InvalidState => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid state")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok();
+        }
+
+        [HttpDelete("{roomId:guid}")]
+        public async Task<IActionResult> Delete(Guid roomId, CancellationToken cancellationToken)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _roomService.DeleteRoomAsync((Guid)userId, roomId, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.PermissionDenied => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Permission denied")),
+                    Errors.Codes.Common.InvalidState => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid state")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok();
+        }
+
+        [HttpPost("{roomId:guid}/photos")]
+        public async Task<IActionResult> AddPhoto(Guid roomId, [FromBody] AddRoomPhotoRequestDto dto, CancellationToken cancellationToken)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _roomService.AddRoomPhotoAsync(userId.Value, roomId, dto, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
+        [HttpDelete("{roomId:guid}/photos/{photoId:guid}")]
+        public async Task<IActionResult> RemovePhoto(Guid roomId, Guid photoId, CancellationToken cancellationToken)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _roomService.RemoveRoomPhotoAsync(userId.Value, roomId, photoId, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
+                    Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok();
+        }
+
         [HttpPost("{roomId:guid}/deactivate")]
         public async Task<IActionResult> Deactivate(Guid roomId, CancellationToken cancellationToken)
         {
