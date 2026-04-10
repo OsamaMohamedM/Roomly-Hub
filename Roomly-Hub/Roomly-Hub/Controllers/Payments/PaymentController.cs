@@ -70,6 +70,11 @@ namespace Roomly_Hub.Controllers.Payments
                 return Conflict("Booking is already paid.");
             }
 
+            if (booking.Status != BookingStatus.Confirmed)
+            {
+                return Conflict("Booking must be approved before payment.");
+            }
+
             var paymentRequest = new EInvoiceRequestModel
             {
                 PaymentMethodId = requestDto.PaymentMethodId,

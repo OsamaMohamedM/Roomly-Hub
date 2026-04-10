@@ -86,17 +86,6 @@ namespace Application.Services.Bookings
             {
                 return await _unitOfWork.ExecuteInTransactionAsync(async token =>
                 {
-                    var canBookRoom = await _bookingRepository.IsRoomAvailableAsync(
-                        bookingRequestDto.RoomId,
-                        bookingRequestDto.StartDate,
-                        bookingRequestDto.EndDate,
-                        token);
-
-                    if (!canBookRoom)
-                    {
-                        return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
-                    }
-
                     var room = await _roomRepository.GetByIdAsync(bookingRequestDto.RoomId, token);
                     if (room == null)
                     {
@@ -104,6 +93,25 @@ namespace Application.Services.Bookings
                     }
 
                     if (!room.CanBeBooked())
+                    {
+                        return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                    }
+
+                    var canBookRoom = room.BookingMode == BookingMode.RequestAndApprove
+                        ? await _bookingRepository.IsRoomAvailableAsync(
+                            bookingRequestDto.RoomId,
+                            bookingRequestDto.StartDate,
+                            bookingRequestDto.EndDate,
+                            new[] { BookingStatus.Confirmed, BookingStatus.Completed },
+                            null,
+                            token)
+                        : await _bookingRepository.IsRoomAvailableAsync(
+                            bookingRequestDto.RoomId,
+                            bookingRequestDto.StartDate,
+                            bookingRequestDto.EndDate,
+                            token);
+
+                    if (!canBookRoom)
                     {
                         return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
@@ -199,12 +207,20 @@ namespace Application.Services.Bookings
                         return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
 
-                    var canBookRoom = await _bookingRepository.IsRoomAvailableAsync(
-                        booking.RoomId,
-                        bookingRequestDto.StartDate,
-                        bookingRequestDto.EndDate,
-                        booking.Id,
-                        token);
+                    var canBookRoom = room.BookingMode == BookingMode.RequestAndApprove
+                        ? await _bookingRepository.IsRoomAvailableAsync(
+                            booking.RoomId,
+                            bookingRequestDto.StartDate,
+                            bookingRequestDto.EndDate,
+                            new[] { BookingStatus.Confirmed, BookingStatus.Completed },
+                            booking.Id,
+                            token)
+                        : await _bookingRepository.IsRoomAvailableAsync(
+                            booking.RoomId,
+                            bookingRequestDto.StartDate,
+                            bookingRequestDto.EndDate,
+                            booking.Id,
+                            token);
 
                     if (!canBookRoom)
                     {
@@ -256,6 +272,20 @@ namespace Application.Services.Bookings
                     }
 
                     booking.MarkAsConfirmed();
+
+                    var competingRequests = await _bookingRepository.GetOverlappingPendingRequestsAsync(
+                        booking.RoomId,
+                        booking.CheckInDate,
+                        booking.CheckOutDate,
+                        booking.Id,
+                        token);
+
+                    foreach (var competing in competingRequests)
+                    {
+                        competing.CancelBooking(hostId);
+                        await _bookingRepository.UpdateBookingAsync(competing, token);
+                    }
+
                     await _bookingRepository.UpdateBookingAsync(booking, token);
                     await _unitOfWork.SaveChangesAsync(token);
                     return Result.Success();

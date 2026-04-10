@@ -1,4 +1,5 @@
 ﻿using Domain.Entities.Booking;
+using Domain.enums.Booking;
 
 namespace Domain.Interfaces.Repositories
 {
@@ -19,5 +20,20 @@ namespace Domain.Interfaces.Repositories
         public Task<bool> IsRoomAvailableAsync(Guid roomId, DateTime checkIn, DateTime checkOut, CancellationToken cancellation = default);
 
         public Task<bool> IsRoomAvailableAsync(Guid roomId, DateTime checkIn, DateTime checkOut, Guid? excludeBookingId = null, CancellationToken cancellation = default);
+
+        public Task<bool> IsRoomAvailableAsync(
+            Guid roomId,
+            DateTime checkIn,
+            DateTime checkOut,
+            IEnumerable<BookingStatus> blockingStatuses,
+            Guid? excludeBookingId = null,
+            CancellationToken cancellation = default);
+
+        public Task<IEnumerable<Booking>> GetOverlappingPendingRequestsAsync(
+            Guid roomId,
+            DateTime checkIn,
+            DateTime checkOut,
+            Guid excludedBookingId,
+            CancellationToken cancellation = default);
     }
 }

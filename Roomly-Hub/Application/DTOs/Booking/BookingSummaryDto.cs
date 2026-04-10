@@ -15,6 +15,7 @@ namespace Application.DTOs.Booking
         public DateTime CheckOutDate { get; set; }
         public DateTime CreatedDate { get; set; }
         public decimal TotalPrice { get; set; }
+        public BookingStatus Status { get; set; }
         public PaymentMethod PaymentMethod { get; set; }
         public PaymentStatus PaymentStatus { get; set; }
         public DateTime? CancelledAt { get; set; }

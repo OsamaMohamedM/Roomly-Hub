@@ -85,5 +85,47 @@ namespace Infrastructure.Repositories
                 checkIn < b.CheckOutDate && checkOut > b.CheckInDate,
                 cancellation);
         }
+
+        public async Task<bool> IsRoomAvailableAsync(
+            Guid roomId,
+            DateTime checkIn,
+            DateTime checkOut,
+            IEnumerable<BookingStatus> blockingStatuses,
+            Guid? excludeBookingId = null,
+            CancellationToken cancellation = default)
+        {
+            var statuses = blockingStatuses?.ToArray() ?? Array.Empty<BookingStatus>();
+
+            var query = _context.Set<Booking>()
+                .Where(b => b.RoomId == roomId &&
+                            statuses.Contains(b.Status) &&
+                            !b.IsDeleted);
+
+            if (excludeBookingId.HasValue)
+            {
+                query = query.Where(b => b.Id != excludeBookingId.Value);
+            }
+
+            return !await query.AnyAsync(b =>
+                checkIn < b.CheckOutDate && checkOut > b.CheckInDate,
+                cancellation);
+        }
+
+        public async Task<IEnumerable<Booking>> GetOverlappingPendingRequestsAsync(
+            Guid roomId,
+            DateTime checkIn,
+            DateTime checkOut,
+            Guid excludedBookingId,
+            CancellationToken cancellation = default)
+        {
+            return await _context.Set<Booking>()
+                .Where(b => b.RoomId == roomId
+                            && b.Status == BookingStatus.Pending
+                            && b.Id != excludedBookingId
+                            && !b.IsDeleted
+                            && checkIn < b.CheckOutDate
+                            && checkOut > b.CheckInDate)
+                .ToListAsync(cancellation);
+        }
     }
 }

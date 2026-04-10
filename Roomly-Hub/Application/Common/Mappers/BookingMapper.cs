@@ -18,6 +18,7 @@ namespace Application.Common.Mappers
                 BookingId = booking.Id,
                 GuestId = booking.GuestId,
                 Room = booking.Room,
+                Status = booking.Status,
                 PaymentMethod = booking.PaymentMethod,
                 PaymentStatus = booking.PaymentStatus,
                 TotalPrice = booking.TotalPrice,
