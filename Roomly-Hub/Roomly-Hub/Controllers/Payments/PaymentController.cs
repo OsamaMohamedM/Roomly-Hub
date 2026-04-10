@@ -1,8 +1,7 @@
 using Application.DTOs.Booking;
 using Application.DTOs.Payment;
-using Application.DTOs.Payment.FawaterkRequest;
 using Application.Interfaces.Services;
-using Domain.enums.Booking;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
@@ -16,19 +15,29 @@ namespace Roomly_Hub.Controllers.Payments
     {
         private readonly IPaymentService _paymentService;
         private readonly IBookingServices _bookingServices;
+        private readonly IValidator<WebHookModel> _webhookValidator;
+        private readonly ILogger<PaymentController> _logger;
 
-        public PaymentController(IPaymentService paymentService, IBookingServices bookingServices)
+        public PaymentController(
+            IPaymentService paymentService,
+            IBookingServices bookingServices,
+            IValidator<WebHookModel> webhookValidator,
+            ILogger<PaymentController> logger)
         {
             _paymentService = paymentService;
             _bookingServices = bookingServices;
+            _webhookValidator = webhookValidator;
+            _logger = logger;
         }
 
         [HttpGet("methods")]
         public async Task<IActionResult> GetPaymentMethods(CancellationToken cancellationToken)
         {
+            _logger.LogInformation("Loading payment methods");
             var methods = await _paymentService.GetPaymentMethods();
             if (methods == null)
             {
+                _logger.LogWarning("Payment methods could not be loaded from provider");
                 return StatusCode(StatusCodes.Status502BadGateway, "Unable to load payment methods from the gateway.");
             }
 
@@ -44,62 +53,24 @@ namespace Roomly_Hub.Controllers.Payments
                 return Unauthorized();
             }
 
-            if (requestDto.BookingId == Guid.Empty || requestDto.PaymentMethodId <= 0)
-            {
-                return BadRequest("BookingId and PaymentMethodId are required.");
-            }
+            _logger.LogInformation("Creating invoice for booking {BookingId} by user {UserId}", requestDto.BookingId, userId.Value);
+            var result = await _bookingServices.CreateBookingPaymentInvoiceAsync(userId.Value, requestDto, cancellationToken);
 
-            var bookingResult = await _bookingServices.GetBookingSummaryAsync(requestDto.BookingId, cancellationToken);
-            if (bookingResult.IsFailure)
+            if (result.IsFailure)
             {
-                return bookingResult.ErrorCode switch
+                _logger.LogWarning("Creating invoice failed for booking {BookingId} by user {UserId}. ErrorCode: {ErrorCode}", requestDto.BookingId, userId.Value, result.ErrorCode);
+                return result.ErrorCode switch
                 {
-                    var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(bookingResult, StatusCodes.Status404NotFound, "Booking not found")),
-                    _ => BadRequest(CreateProblemDetails(bookingResult, StatusCodes.Status400BadRequest, "Request failed"))
+                    var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
+                    var code when code == Application.Common.Constants.Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    var code when code == Application.Common.Constants.Errors.Codes.Booking.InvalidBookingState => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Invalid booking state")),
+                    var code when code == Application.Common.Constants.Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }
 
-            var booking = bookingResult.Value;
-            if (booking.GuestId != userId.Value)
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, "You are not allowed to pay for this booking.");
-            }
-
-            if (booking.PaymentStatus == PaymentStatus.Paid)
-            {
-                return Conflict("Booking is already paid.");
-            }
-
-            if (booking.Status != BookingStatus.Confirmed)
-            {
-                return Conflict("Booking must be approved before payment.");
-            }
-
-            var paymentRequest = new EInvoiceRequestModel
-            {
-                PaymentMethodId = requestDto.PaymentMethodId,
-                CartItems = new List<CartItemModel>
-                {
-                    new()
-                    {
-                        Price = booking.TotalPrice,
-                        Quantity = 1
-                    }
-                },
-                PayLoad = new EInvoicePayload
-                {
-                    OrderId = booking.BookingId.ToString()
-                },
-                RedirectionUrls = requestDto.RedirectionUrls
-            };
-
-            var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
-            if (response == null)
-            {
-                return StatusCode(StatusCodes.Status502BadGateway, "Unable to create payment invoice.");
-            }
-
-            return Ok(response);
+            _logger.LogInformation("Invoice created successfully for booking {BookingId} by user {UserId}", requestDto.BookingId, userId.Value);
+            return Ok(result.Value);
         }
 
         [AllowAnonymous]
@@ -111,8 +82,18 @@ namespace Roomly_Hub.Controllers.Payments
                 return BadRequest("Webhook payload is required.");
             }
 
+            _logger.LogInformation("Received payment webhook for invoice {InvoiceId}", webhook.InvoiceId);
+
+            var validationResult = await _webhookValidator.ValidateAsync(webhook, cancellationToken);
+            if (!validationResult.IsValid)
+            {
+                _logger.LogWarning("Webhook validation failed for invoice {InvoiceId}", webhook.InvoiceId);
+                return BadRequest("Invalid webhook payload.");
+            }
+
             if (!_paymentService.VerifyWebhook(webhook))
             {
+                _logger.LogWarning("Webhook signature verification failed for invoice {InvoiceId}", webhook.InvoiceId);
                 return Unauthorized();
             }
 
@@ -138,6 +119,7 @@ namespace Roomly_Hub.Controllers.Payments
             var result = await _bookingServices.MarkBookingAsPaidAsync(bookingId, cancellationToken);
             if (result.IsFailure)
             {
+                _logger.LogWarning("Webhook processing failed for booking {BookingId}. ErrorCode: {ErrorCode}", bookingId, result.ErrorCode);
                 return result.ErrorCode switch
                 {
                     var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
@@ -147,6 +129,7 @@ namespace Roomly_Hub.Controllers.Payments
                 };
             }
 
+            _logger.LogInformation("Webhook processed successfully for booking {BookingId}", bookingId);
             return Ok();
         }
     }

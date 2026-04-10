@@ -1,5 +1,6 @@
 ﻿using Application.Common.Results;
 using Application.DTOs.Booking;
+using Application.DTOs.Payment;
 
 namespace Application.Interfaces.Services
 {
@@ -22,5 +23,7 @@ namespace Application.Interfaces.Services
         public Task<Result> RejectBookingRequestAsync(Guid hostId, Guid bookingId, CancellationToken cancellation = default);
 
         public Task<Result<BookingSummaryDto>> MarkBookingAsPaidAsync(Guid bookingId, CancellationToken cancellation = default);
+
+        public Task<Result<EInvoiceResponseData>> CreateBookingPaymentInvoiceAsync(Guid guestId, CreateBookingPaymentRequestDto requestDto, CancellationToken cancellation = default);
     }
 }

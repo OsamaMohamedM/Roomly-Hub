@@ -19,6 +19,8 @@ namespace Roomly_Hub.Middleware
             Exception exception,
             CancellationToken cancellationToken)
         {
+            _logger.LogError(exception, "Unhandled exception at {Path}", httpContext.Request.Path);
+
             var problemDetails = exception switch
             {
                 NotFoundException notFoundEx => new ApiProblemDetails

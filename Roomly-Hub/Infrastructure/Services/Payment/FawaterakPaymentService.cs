@@ -40,6 +40,8 @@ namespace Infrastructure.Services.Payment
                 if (eInvoice == null)
                     return null;
 
+                _logger.LogInformation("Creating Fawaterak invoice for payment method {PaymentMethodId}", eInvoice.PaymentMethodId);
+
                 var client = _httpClientFactory.CreateClient();
                 var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/createInvoiceLink");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
@@ -53,8 +55,11 @@ namespace Infrastructure.Services.Payment
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
                     var eInvoiceResponse = JsonConvert.DeserializeObject<EInvoiceResponseData>(responseContent);
+                    _logger.LogInformation("Fawaterak invoice created successfully");
                     return eInvoiceResponse;
                 }
+
+                _logger.LogWarning("Fawaterak invoice creation failed with status code {StatusCode}", response.StatusCode);
 
                 return null;
             }
@@ -69,6 +74,7 @@ namespace Infrastructure.Services.Payment
         {
             try
             {
+                _logger.LogInformation("Loading payment methods from Fawaterak");
                 var client = _httpClientFactory.CreateClient();
                 var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/getPaymentmethods");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
@@ -92,6 +98,8 @@ namespace Infrastructure.Services.Payment
                     return paymentMethodsResponse?.Data;
                 }
 
+                _logger.LogWarning("Loading Fawaterak payment methods failed with status code {StatusCode}", result.StatusCode);
+
                 return null;
             }
             catch (Exception ex)
@@ -105,6 +113,7 @@ namespace Infrastructure.Services.Payment
         {
             try
             {
+                _logger.LogInformation("Mapping payment method id {PaymentMethodId}", paymentMethodId);
                 var methods = paymentMethods ?? await GetPaymentMethods();
 
                 var method = methods?.FirstOrDefault(x => x.PaymentId == paymentMethodId);
@@ -136,6 +145,8 @@ namespace Infrastructure.Services.Payment
                 if (invoice?.PaymentMethodId == null)
                     return null;
 
+                _logger.LogInformation("Processing general pay for payment method {PaymentMethodId}", invoice.PaymentMethodId);
+
                 var client = _httpClientFactory.CreateClient();
                 var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/invoiceInitPay");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
@@ -148,6 +159,8 @@ namespace Infrastructure.Services.Payment
                     var responseContent = await response.Content.ReadAsStringAsync();
                     var method = await GetPaymentMethod(invoice.PaymentMethodId.Value);
 
+                    _logger.LogInformation("Fawaterak payment initialized successfully for method {Method}", method);
+
                     return method switch
                     {
                         PaymentMethod.Fawry => JsonConvert.DeserializeObject<FawryPaymentResponse>(responseContent),
@@ -156,6 +169,8 @@ namespace Infrastructure.Services.Payment
                         _ => null
                     };
                 }
+
+                _logger.LogWarning("Fawaterak general pay failed with status code {StatusCode}", response.StatusCode);
 
                 return null;
             }
@@ -173,12 +188,20 @@ namespace Infrastructure.Services.Payment
                 if (webHook == null)
                     return false;
 
+                _logger.LogInformation("Verifying webhook signature for invoice {InvoiceId}", webHook.InvoiceId);
+
                 var generatedHashKey = GenerateHashKeyForWebhookVerification(
                     webHook.InvoiceId,
                     webHook.InvoiceKey,
                     webHook.PaymentMethod);
 
-                return generatedHashKey == webHook.HashKey;
+                var isValid = generatedHashKey == webHook.HashKey;
+                if (!isValid)
+                {
+                    _logger.LogWarning("Webhook signature mismatch for invoice {InvoiceId}", webHook.InvoiceId);
+                }
+
+                return isValid;
             }
             catch (Exception ex)
             {
@@ -194,11 +217,19 @@ namespace Infrastructure.Services.Payment
                 if (cancelTransaction == null)
                     return false;
 
+                _logger.LogInformation("Verifying cancellation signature for reference {ReferenceId}", cancelTransaction.ReferenceId);
+
                 var generatedHashKey = GenerateHashKeyForCancelTransaction(
                     cancelTransaction.ReferenceId,
                     cancelTransaction.PaymentMethod);
 
-                return generatedHashKey == cancelTransaction.HashKey;
+                var isValid = generatedHashKey == cancelTransaction.HashKey;
+                if (!isValid)
+                {
+                    _logger.LogWarning("Cancellation signature mismatch for reference {ReferenceId}", cancelTransaction.ReferenceId);
+                }
+
+                return isValid;
             }
             catch (Exception ex)
             {

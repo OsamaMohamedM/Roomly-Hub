@@ -17,9 +17,15 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Roomly_Hub.Middleware;
+using Serilog;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
 builder.Services.AddControllers();
 builder.Services.AddHttpClient();
@@ -105,6 +111,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 app.UseExceptionHandler();
+app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
