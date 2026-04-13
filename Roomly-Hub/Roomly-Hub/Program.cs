@@ -3,6 +3,7 @@ using Application.DTOs;
 using Application.DTOs.Payment;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
+using Application.Interfaces.Services.Bookings;
 using Application.Services;
 using Application.Services.Bookings;
 using Application.Services.RoomCRUD;
@@ -148,6 +149,10 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IRoomModerationService, RoomModerationService>();
+builder.Services.AddScoped<IBookingPaymentRequestFactory, BookingPaymentRequestFactory>();
+builder.Services.AddScoped<IBookingCommandService, BookingCommandService>();
+builder.Services.AddScoped<IBookingQueryService, BookingQueryService>();
+builder.Services.AddScoped<IBookingPaymentFlowService, BookingPaymentFlowService>();
 builder.Services.AddScoped<IBookingServices, BookingServices>();
 
 builder.Services.AddOpenApi();
