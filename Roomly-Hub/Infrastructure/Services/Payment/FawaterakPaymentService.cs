@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using PaymentMethoodModel = Domain.Entities.Payment.PaymentMethoodModel;
 
 namespace Infrastructure.Services.Payment
@@ -77,6 +78,7 @@ namespace Infrastructure.Services.Payment
                 _logger.LogInformation("Loading payment methods from Fawaterak");
                 var client = _httpClientFactory.CreateClient();
                 var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/getPaymentmethods");
+
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
                 request.Content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
 
@@ -85,7 +87,9 @@ namespace Infrastructure.Services.Payment
                 if (result.IsSuccessStatusCode)
                 {
                     var responseContent = await result.Content.ReadAsStringAsync();
-                    var paymentMethodsResponse = JsonConvert.DeserializeObject<PaymentMethodsResponse>(responseContent);
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var paymentMethodsResponse = System.Text.Json.JsonSerializer.Deserialize<PaymentMethodsResponse>(responseContent, options);
+                    
 
                     if (paymentMethodsResponse?.Data != null)
                     {

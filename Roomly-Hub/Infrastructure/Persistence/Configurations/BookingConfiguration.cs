@@ -27,7 +27,7 @@ namespace Infrastructure.Persistence.Configurations
 
             builder.Property(b => b.Status)
                 .HasConversion<string>()
-                .HasDefaultValue(BookingStatus.Pending)
+                .HasDefaultValue(BookingStatus.PendingHostApproval)
                 .IsRequired();
 
             builder.Property(b => b.Source)

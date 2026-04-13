@@ -3,13 +3,10 @@ using FluentValidation;
 
 namespace Application.Validators.Booking
 {
-    public class BookingRequestDtoValidator : AbstractValidator<BookingRequestDto>
+    public class CreateBookingDtoValidator : AbstractValidator<CreateBookingDto>
     {
-        public BookingRequestDtoValidator()
+        public CreateBookingDtoValidator()
         {
-            RuleFor(x => x.UserId)
-                .NotEmpty().WithMessage("UserId is required.");
-
             RuleFor(x => x.RoomId)
                 .NotEmpty().WithMessage("RoomId is required.");
 
@@ -22,7 +19,6 @@ namespace Application.Validators.Booking
                 .WithMessage("EndDate is required.")
                 .GreaterThan(x => x.StartDate)
                 .WithMessage("EndDate must be after StartDate.");
-
         }
     }
 }

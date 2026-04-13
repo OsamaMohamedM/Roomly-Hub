@@ -43,7 +43,9 @@ namespace Domain.Entities.Booking
             if (checkInDate >= checkOutDate)
                 throw new ArgumentException("Check-out date must be after check-in date.");
 
-            var initialStatus = BookingStatus.Pending;
+            var initialStatus = bookingMode == BookingMode.RequestAndApprove
+                ? BookingStatus.PendingHostApproval
+                : BookingStatus.AwaitingPayment;
             var isApprovedByHost = bookingMode != BookingMode.RequestAndApprove;
 
             return new Booking
@@ -106,7 +108,11 @@ namespace Domain.Entities.Booking
 
         public void ApproveByHost()
         {
+            if (Status != BookingStatus.PendingHostApproval)
+                throw new InvalidOperationException("Booking is not waiting host approval.");
+
             IsApprovedByHost = true;
+            Status = BookingStatus.AwaitingPayment;
             MarkUpdated();
         }
 
@@ -132,9 +138,9 @@ namespace Domain.Entities.Booking
 
         public void MarkAsPending()
         {
-            if (Status == BookingStatus.Pending)
+            if (Status == BookingStatus.PendingHostApproval)
                 throw new InvalidOperationException("Booking is already pending.");
-            Status = BookingStatus.Pending;
+            Status = BookingStatus.PendingHostApproval;
         }
 
         public void MarkAsCompleted()

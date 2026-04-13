@@ -3,7 +3,9 @@
     public enum BookingStatus
     {
         Unknown,
-        Pending,
+
+        AwaitingPayment,
+        PendingHostApproval,
         Confirmed,
         Cancelled,
         Completed,

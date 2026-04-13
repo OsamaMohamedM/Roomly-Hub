@@ -22,6 +22,7 @@ namespace Application.Services.Bookings
         private readonly IPaymentService _paymentService;
         private readonly IBookingPaymentRequestFactory _bookingPaymentRequestFactory;
         private readonly IValidator<CreateBookingPaymentRequestDto> _createBookingPaymentValidator;
+        private readonly IValidator<InitiatePaymentDto> _initiatePaymentValidator;
         private readonly IBookingMapper _bookingMapper;
         private readonly ILogger<BookingPaymentFlowService> _logger;
 
@@ -31,6 +32,7 @@ namespace Application.Services.Bookings
             IPaymentService paymentService,
             IBookingPaymentRequestFactory bookingPaymentRequestFactory,
             IValidator<CreateBookingPaymentRequestDto> createBookingPaymentValidator,
+            IValidator<InitiatePaymentDto> initiatePaymentValidator,
             IBookingMapper bookingMapper,
             ILogger<BookingPaymentFlowService> logger)
         {
@@ -39,6 +41,7 @@ namespace Application.Services.Bookings
             _paymentService = paymentService;
             _bookingPaymentRequestFactory = bookingPaymentRequestFactory;
             _createBookingPaymentValidator = createBookingPaymentValidator;
+            _initiatePaymentValidator = initiatePaymentValidator;
             _bookingMapper = bookingMapper;
             _logger = logger;
         }
@@ -63,6 +66,11 @@ namespace Application.Services.Bookings
                     }
 
                     if (booking.Status == BookingStatus.Cancelled)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+                    }
+
+                    if (booking.Status == BookingStatus.PendingHostApproval)
                     {
                         return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
                     }
@@ -100,6 +108,11 @@ namespace Application.Services.Bookings
                     }
 
                     if (booking.Status == BookingStatus.Cancelled)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+                    }
+
+                    if (booking.Status == BookingStatus.PendingHostApproval)
                     {
                         return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
                     }
@@ -187,7 +200,7 @@ namespace Application.Services.Bookings
                 return Result<EInvoiceResponseData>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Common.UserNotFound);
             }
 
-            if (booking.Status != BookingStatus.Pending || !booking.IsApprovedByHost)
+            if (booking.Status != BookingStatus.AwaitingPayment)
             {
                 _logger.LogWarning("Payment invoice blocked for booking {BookingId}. Status is {Status}", requestDto.BookingId, booking.Status);
                 return Result<EInvoiceResponseData>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
@@ -234,12 +247,68 @@ namespace Application.Services.Bookings
                 return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Common.UserNotFound);
             }
 
-            if (booking.Status != BookingStatus.Pending || !booking.IsApprovedByHost || booking.PaymentStatus == PaymentStatus.Paid)
+            if (booking.Status != BookingStatus.AwaitingPayment || booking.PaymentStatus == PaymentStatus.Paid)
             {
                 return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
             }
 
             var paymentRequest = _bookingPaymentRequestFactory.Create(booking, null, null);
+            var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
+            if (response == null || string.IsNullOrWhiteSpace(response.Url) || string.IsNullOrWhiteSpace(response.InvoiceId) || string.IsNullOrWhiteSpace(response.InvoiceKey))
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.PaymentFailed, Errors.Messages.Booking.PaymentFailed);
+            }
+
+            booking.SetPaymentInvoice(response.InvoiceId, response.InvoiceKey);
+            await _bookingRepository.UpdateBookingAsync(booking, cancellation);
+            await _unitOfWork.SaveChangesAsync(cancellation);
+
+            return Result<BookingPaymentLinkResponseDto>.Success(new BookingPaymentLinkResponseDto
+            {
+                BookingId = booking.Id,
+                Status = booking.Status,
+                PaymentUrl = response.Url
+            });
+        }
+
+        public async Task<Result<BookingPaymentLinkResponseDto>> InitiatePaymentAsync(Guid guestId, Guid bookingId, InitiatePaymentDto initiatePaymentDto, CancellationToken cancellation = default)
+        {
+            var validationResult = await _initiatePaymentValidator.ValidateAsync(initiatePaymentDto, cancellation);
+            if (!validationResult.IsValid)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(
+                    Errors.Codes.Common.ValidationError,
+                    Errors.Messages.Common.RequestValidationFailed,
+                    ValidationHelper.ToErrorDictionary(validationResult));
+            }
+
+            var booking = await _bookingRepository.GetBookingByIdAsync(bookingId, cancellation);
+            if (booking == null)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.BookingNotFound, Errors.Messages.Booking.BookingNotFound);
+            }
+
+            if (booking.GuestId != guestId)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Common.UserNotFound);
+            }
+
+            if (booking.Status == BookingStatus.PendingHostApproval)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Common.ValidationError, "Booking is waiting for host approval.");
+            }
+
+            if (booking.Status != BookingStatus.AwaitingPayment)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+            }
+
+            if (booking.PaymentStatus == PaymentStatus.Paid)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.InvalidBookingState, "Booking is already paid.");
+            }
+
+            var paymentRequest = _bookingPaymentRequestFactory.Create(booking, initiatePaymentDto.PaymentMethodId, initiatePaymentDto.RedirectionUrls);
             var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
             if (response == null || string.IsNullOrWhiteSpace(response.Url) || string.IsNullOrWhiteSpace(response.InvoiceId) || string.IsNullOrWhiteSpace(response.InvoiceKey))
             {

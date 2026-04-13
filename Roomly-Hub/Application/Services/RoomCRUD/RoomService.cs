@@ -99,7 +99,7 @@ namespace Application.Services.RoomCRUD
             if (room.HostId != hostId)
                 return Result.Failure(Errors.Codes.Common.PermissionDenied, Errors.Messages.Room.CannotUpdateListing);
 
-            if (room.Status != RoomListingStatus.Inactive)
+            if (room.Status != RoomListingStatus.Draft && room.Status != RoomListingStatus.Inactive)
                 return Result.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeEdited);
 
             room.Activate();

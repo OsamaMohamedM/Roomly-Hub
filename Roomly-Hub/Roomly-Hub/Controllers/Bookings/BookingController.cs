@@ -1,5 +1,6 @@
 using Application.Common.Constants;
 using Application.DTOs.Booking;
+using Application.DTOs.Payment;
 using Application.Interfaces.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -36,8 +37,8 @@ namespace Roomly_Hub.Controllers.Bookings
             return Ok(result.Value);
         }
 
-        [HttpGet("{bookingId:guid}/payment-link")]
-        public async Task<IActionResult> GetBookingPaymentLink(Guid bookingId, CancellationToken cancellationToken)
+        [HttpPost("{bookingId:guid}/pay")]
+        public async Task<IActionResult> InitiatePayment(Guid bookingId, [FromBody] InitiatePaymentDto dto, CancellationToken cancellationToken)
         {
             var userId = GetUserId();
             if (userId == null)
@@ -45,13 +46,14 @@ namespace Roomly_Hub.Controllers.Bookings
                 return Unauthorized();
             }
 
-            var result = await _bookingServices.GetBookingPaymentLinkAsync(userId.Value, bookingId, cancellationToken);
+            var result = await _bookingServices.InitiatePaymentAsync(userId.Value, bookingId, dto, cancellationToken);
             if (result.IsFailure)
             {
                 return result.ErrorCode switch
                 {
                     var code when code == Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
                     var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    var code when code == Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
                     var code when code == Errors.Codes.Booking.InvalidBookingState => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Invalid booking state")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
@@ -132,7 +134,7 @@ namespace Roomly_Hub.Controllers.Bookings
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateBooking([FromBody] BookingRequestDto dto, CancellationToken cancellationToken)
+        public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDto dto, CancellationToken cancellationToken)
         {
             var userId = GetUserId();
             if (userId == null)
@@ -140,14 +142,12 @@ namespace Roomly_Hub.Controllers.Bookings
                 return Unauthorized();
             }
 
-            dto.UserId = userId.Value;
-            dto.BookingId = null;
-
-            var result = await _bookingServices.CreateBookingAsync(dto, cancellationToken);
+            var result = await _bookingServices.CreateBookingAsync(userId.Value, dto, cancellationToken);
             if (result.IsFailure)
             {
                 return result.ErrorCode switch
                 {
+                    var code when code == Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
                     var code when code == Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };

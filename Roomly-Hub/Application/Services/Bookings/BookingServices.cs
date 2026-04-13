@@ -28,8 +28,8 @@ namespace Application.Services.Bookings
         public Task<Result<string>> CancelBookingAsync(BookingCancelRequestDto bookingCancelRequestDto, CancellationToken cancellation = default)
             => _bookingCommandService.CancelBookingAsync(bookingCancelRequestDto, cancellation);
 
-        public Task<Result<CreateBookingResponseDto>> CreateBookingAsync(BookingRequestDto bookingRequestDto, CancellationToken cancellation = default)
-            => _bookingCommandService.CreateBookingAsync(bookingRequestDto, cancellation);
+        public Task<Result<CreateBookingResponseDto>> CreateBookingAsync(Guid guestId, CreateBookingDto createBookingDto, CancellationToken cancellation = default)
+            => _bookingCommandService.CreateBookingAsync(guestId, createBookingDto, cancellation);
 
         public Task<Result<EInvoiceResponseData>> CreateBookingPaymentInvoiceAsync(Guid guestId, CreateBookingPaymentRequestDto requestDto, CancellationToken cancellation = default)
             => _bookingPaymentFlowService.CreateBookingPaymentInvoiceAsync(guestId, requestDto, cancellation);
@@ -63,5 +63,8 @@ namespace Application.Services.Bookings
 
         public Task<Result<BookingPaymentLinkResponseDto>> GetBookingPaymentLinkAsync(Guid guestId, Guid bookingId, CancellationToken cancellation = default)
             => _bookingPaymentFlowService.GetBookingPaymentLinkAsync(guestId, bookingId, cancellation);
+
+        public Task<Result<BookingPaymentLinkResponseDto>> InitiatePaymentAsync(Guid guestId, Guid bookingId, InitiatePaymentDto initiatePaymentDto, CancellationToken cancellation = default)
+            => _bookingPaymentFlowService.InitiatePaymentAsync(guestId, bookingId, initiatePaymentDto, cancellation);
     }
 }

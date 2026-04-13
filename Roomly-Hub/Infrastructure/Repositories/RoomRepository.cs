@@ -1,4 +1,5 @@
 using Domain.Entities.Rooms;
+using Domain.enums.Room;
 using Domain.Interfaces.Repositories;
 using Domain.ValueObjects;
 using Infrastructure.Persistence;
@@ -170,7 +171,7 @@ namespace Infrastructure.Repositories
                 .Include(r => r.Photos)
                 .Include(r => r.Amenities)
                 .Include(r => r.Availabilities)
-                .Where(r => !r.IsDeleted);
+                .Where(r => !r.IsDeleted && r.Status == RoomListingStatus.Published);
         }
 
         private static IQueryable<Room> ApplyFilters(IQueryable<Room> rooms, RoomFilters filters)

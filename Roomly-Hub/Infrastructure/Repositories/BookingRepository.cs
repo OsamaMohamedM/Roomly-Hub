@@ -57,7 +57,7 @@ namespace Infrastructure.Repositories
             return await _context.Set<Booking>()
                 .Include(b => b.Room)
                 .Where(b =>
-                    b.Status == BookingStatus.Pending &&
+                    b.Status == BookingStatus.PendingHostApproval &&
                     !b.IsApprovedByHost &&
                     b.Room.HostId == hostId &&
                     !b.IsDeleted)
@@ -142,7 +142,7 @@ namespace Infrastructure.Repositories
         {
             return await _context.Set<Booking>()
                 .Where(b => b.RoomId == roomId
-                            && b.Status == BookingStatus.Pending
+                            && b.Status == BookingStatus.PendingHostApproval
                             && b.Id != excludedBookingId
                             && !b.IsDeleted
                             && checkIn < b.CheckOutDate

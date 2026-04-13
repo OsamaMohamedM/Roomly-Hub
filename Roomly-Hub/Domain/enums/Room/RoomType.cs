@@ -2,7 +2,6 @@
 {
     public enum RoomType
     {
-        Draft,
         PrivateRoom,
         SharedRoom,
         EntireApartment,
