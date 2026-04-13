@@ -46,6 +46,12 @@ namespace Application.Services.RoomCRUD
             if (!user.CanCreateListing())
                 return Result<RoomResponseDto>.Failure(Errors.Codes.Common.PermissionDenied, Errors.Messages.Room.CannotCreateListing);
 
+            var amenityIds = dto.AmenityIds?.Distinct().ToList() ?? [];
+            var amenities = await _roomRepository.GetAmenitiesByIdsAsync(amenityIds, cancellationToken);
+
+            if (amenityIds.Count != amenities.Count)
+                return Result<RoomResponseDto>.Failure(Errors.Codes.Common.ValidationError, "One or more amenity IDs are invalid.");
+
             var room = Room.Create(
                 hostId,
                 dto.Title,
@@ -57,7 +63,7 @@ namespace Application.Services.RoomCRUD
                 dto.CheckInTime,
                 dto.CheckOutTime,
                 dto.FreeCancellation,
-                dto.Amenities
+                amenities
             );
 
             await _roomRepository.AddAsync(room, cancellationToken);
@@ -226,6 +232,32 @@ namespace Application.Services.RoomCRUD
             if (!room.CanBeEdited())
                 return Result<RoomResponseDto>.Failure(Errors.Codes.Common.InvalidState, Errors.Messages.Room.RoomCannotBeEdited);
 
+            if (dto.AmenityIds is not null)
+            {
+                var amenityIds = dto.AmenityIds.Distinct().ToList();
+                var amenities = await _roomRepository.GetAmenitiesByIdsAsync(amenityIds, cancellationToken);
+                if (amenityIds.Count != amenities.Count)
+                    return Result<RoomResponseDto>.Failure(Errors.Codes.Common.ValidationError, "One or more amenity IDs are invalid.");
+
+                var selectedAmenityIds = amenities.Select(a => a.Id).ToHashSet();
+
+                foreach (var existingAmenity in room.Amenities.ToList())
+                {
+                    if (!selectedAmenityIds.Contains(existingAmenity.Id))
+                    {
+                        room.RemoveAmenity(existingAmenity);
+                    }
+                }
+
+                foreach (var amenity in amenities)
+                {
+                    if (!room.Amenities.Any(a => a.Id == amenity.Id))
+                    {
+                        room.AddAmenity(amenity);
+                    }
+                }
+            }
+
             room.UpdateDetails(
                 dto.Title ?? room.Title,
                 dto.Description ?? room.Description,
@@ -239,7 +271,6 @@ namespace Application.Services.RoomCRUD
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return Result<RoomResponseDto>.Success(_roomMapper.ToResponseDto(room));
         }
-
 
         public async Task<Result<AvailabilityResponseDto>> GetAvailabilityAsync(Guid roomId, int year, int month, CancellationToken cancellationToken = default)
         {
@@ -286,6 +317,7 @@ namespace Application.Services.RoomCRUD
             await _unitOfWork.SaveChangesAsync(cancellationToken);
             return Result.Success();
         }
+
         public async Task<Result> UnblockDatesAsync(Guid hostId, Guid roomId, BlockDatesRequestDto dto, CancellationToken cancellationToken = default)
         {
             var validationResult = await _blockDatesRequestValidator.ValidateAsync(dto, cancellationToken);

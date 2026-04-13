@@ -7,6 +7,8 @@ namespace Domain.Interfaces.Repositories
     {
         public Task<Booking?> GetBookingByIdAsync(Guid bookingId, CancellationToken cancellation = default);
 
+        public Task<Booking?> GetBookingByInvoiceIdAsync(string invoiceId, CancellationToken cancellation = default);
+
         public Task<IEnumerable<Booking>> GetBookingsByGuestIdAsync(Guid guestId, CancellationToken cancellation = default);
 
         public Task<IEnumerable<Booking>> GetPendingRequestsByHostIdAsync(Guid hostId, CancellationToken cancellation = default);

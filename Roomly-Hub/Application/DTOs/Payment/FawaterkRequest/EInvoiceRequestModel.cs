@@ -6,7 +6,7 @@
 
         public List<CartItemModel> CartItems { get; set; } = new();
 
-        public decimal CartTotal => CartItems?.Sum(item => item.Price * item.Quantity) ?? 0m;
+        public decimal CartTotal => CartItems?.Sum(item => item.Total) ?? 0m;
 
         public string Currency { get; set; } = "EGP";
 

@@ -22,6 +22,13 @@ namespace Infrastructure.Repositories
                 .FirstOrDefaultAsync(b => b.Id == bookingId && !b.IsDeleted, cancellation);
         }
 
+        public async Task<Booking?> GetBookingByInvoiceIdAsync(string invoiceId, CancellationToken cancellation = default)
+        {
+            return await _context.Set<Booking>()
+                .Include(b => b.Room)
+                .FirstOrDefaultAsync(b => b.PaymentInvoiceId == invoiceId && !b.IsDeleted, cancellation);
+        }
+
         public async Task<IEnumerable<Booking>> GetBookingsByGuestIdAsync(Guid guestId, CancellationToken cancellation = default)
         {
             return await _context.Set<Booking>()
@@ -51,6 +58,7 @@ namespace Infrastructure.Repositories
                 .Include(b => b.Room)
                 .Where(b =>
                     b.Status == BookingStatus.Pending &&
+                    !b.IsApprovedByHost &&
                     b.Room.HostId == hostId &&
                     !b.IsDeleted)
                 .OrderByDescending(b => b.CreatedDate)

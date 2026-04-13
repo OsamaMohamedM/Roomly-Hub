@@ -26,11 +26,27 @@ namespace Infrastructure.Repositories
 
         public async Task AddAsync(Room room, CancellationToken cancellationToken = default)
         {
+            foreach (var amenity in room.Amenities)
+            {
+                if (_context.Entry(amenity).State == EntityState.Detached)
+                {
+                    _context.Amenities.Attach(amenity);
+                }
+            }
+
             await _context.Rooms.AddAsync(room, cancellationToken);
         }
 
         public Task UpdateAsync(Room room, CancellationToken cancellationToken = default)
         {
+            foreach (var amenity in room.Amenities)
+            {
+                if (_context.Entry(amenity).State == EntityState.Detached)
+                {
+                    _context.Amenities.Attach(amenity);
+                }
+            }
+
             _context.Rooms.Update(room);
             return Task.CompletedTask;
         }
@@ -123,6 +139,17 @@ namespace Infrastructure.Repositories
             return await BaseRoomsQuery()
                 .Where(r => r.Status == Domain.enums.Room.RoomListingStatus.PendingReview)
                 .OrderBy(r => r.CreatedAt)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<AmenityType>> GetAmenitiesByIdsAsync(IEnumerable<Guid> amenityIds, CancellationToken cancellationToken = default)
+        {
+            var ids = amenityIds?.Distinct().ToList() ?? [];
+            if (ids.Count == 0)
+                return [];
+
+            return await _context.Amenities
+                .Where(a => !a.IsDeleted && ids.Contains(a.Id))
                 .ToListAsync(cancellationToken);
         }
 

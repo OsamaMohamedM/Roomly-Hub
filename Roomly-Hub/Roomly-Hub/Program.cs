@@ -14,11 +14,14 @@ using Infrastructure.Repositories;
 using Infrastructure.Services;
 using Infrastructure.Services.Payment;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Roomly_Hub.Common;
 using Roomly_Hub.Middleware;
 using Serilog;
+using System.Text.Json;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,6 +32,55 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .Enrich.FromLogContext());
 
 builder.Services.AddControllers();
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var allErrors = context.ModelState
+            .Where(x => x.Value is { Errors.Count: > 0 })
+            .SelectMany(x => x.Value!.Errors)
+            .ToList();
+
+        var hasDataTypeError = allErrors.Any(e =>
+            e.Exception is JsonException or FormatException ||
+            (!string.IsNullOrWhiteSpace(e.ErrorMessage) &&
+             e.ErrorMessage.Contains("could not be converted", StringComparison.OrdinalIgnoreCase)));
+
+        var hasMissingAttributesError = allErrors.Any(e =>
+            !string.IsNullOrWhiteSpace(e.ErrorMessage) &&
+            (e.ErrorMessage.Contains("required", StringComparison.OrdinalIgnoreCase) ||
+             e.ErrorMessage.Contains("was not provided", StringComparison.OrdinalIgnoreCase) ||
+             e.ErrorMessage.Contains("non-empty request body", StringComparison.OrdinalIgnoreCase)));
+
+        var detail = hasDataTypeError
+            ? "Invalid data type in request payload."
+            : hasMissingAttributesError
+                ? "There are missing attributes in the request payload."
+                : "Request validation failed.";
+
+        var errorType = hasDataTypeError
+            ? "DATA_TYPE_MISMATCH"
+            : hasMissingAttributesError
+                ? "MISSING_ATTRIBUTES"
+                : "VALIDATION_ERROR";
+
+        var problem = new ApiProblemDetails
+        {
+            Code = "VALIDATION_ERROR",
+            Status = StatusCodes.Status400BadRequest,
+            Title = "Validation Failed",
+            Detail = detail,
+            Instance = context.HttpContext.Request.Path
+        };
+
+        problem.Extensions["errorType"] = errorType;
+
+        return new BadRequestObjectResult(problem)
+        {
+            ContentTypes = { "application/problem+json" }
+        };
+    };
+});
 builder.Services.AddHttpClient();
 
 builder.Services.AddDbContext<AppDbContext>(options =>

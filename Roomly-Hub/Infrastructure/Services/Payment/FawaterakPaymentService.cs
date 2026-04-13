@@ -195,7 +195,9 @@ namespace Infrastructure.Services.Payment
                     webHook.InvoiceKey,
                     webHook.PaymentMethod);
 
-                var isValid = generatedHashKey == webHook.HashKey;
+                var generatedBytes = Encoding.UTF8.GetBytes(generatedHashKey);
+                var receivedBytes = Encoding.UTF8.GetBytes(webHook.HashKey.ToLowerInvariant());
+                var isValid = generatedBytes.Length == receivedBytes.Length && CryptographicOperations.FixedTimeEquals(generatedBytes, receivedBytes);
                 if (!isValid)
                 {
                     _logger.LogWarning("Webhook signature mismatch for invoice {InvoiceId}", webHook.InvoiceId);

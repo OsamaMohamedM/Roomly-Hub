@@ -44,7 +44,9 @@ namespace Roomly_Hub.Middleware
                     Code = "VALIDATION_ERROR",
                     Status = StatusCodes.Status400BadRequest,
                     Title = "Validation Failed",
-                    Detail = validationEx.Message,
+                    Detail = string.IsNullOrWhiteSpace(validationEx.Message)
+                        ? "Request validation failed."
+                        : validationEx.Message,
                     Instance = httpContext.Request.Path,
                     Extensions = { ["errors"] = validationEx.Errors }
                 },
@@ -55,6 +57,15 @@ namespace Roomly_Hub.Middleware
                     Title = "Concurrency Conflict",
                     Detail = "The resource was modified by another process. Please refresh and try again.",
                     Instance = httpContext.Request.Path
+                },
+                InvalidOperationException => new ApiProblemDetails
+                {
+                    Code = "Invalid Attributes",
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Invalid Attributes",
+                    Detail = exception.Message,
+                    Instance = httpContext.Request.Path
+
                 },
                 _ => new ApiProblemDetails
                 {

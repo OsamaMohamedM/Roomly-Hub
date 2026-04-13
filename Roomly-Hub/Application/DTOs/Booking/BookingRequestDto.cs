@@ -1,4 +1,5 @@
 ﻿using Domain.enums.Booking;
+using Application.DTOs.Payment.FawaterkRequest;
 
 namespace Application.DTOs.Booking
 {
@@ -13,5 +14,7 @@ namespace Application.DTOs.Booking
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public PaymentMethod PaymentMethod { get; set; }
+        public int? PaymentMethodId { get; set; }
+        public EInvoiceRedirectionUrls? RedirectionUrls { get; set; }
     }
 }

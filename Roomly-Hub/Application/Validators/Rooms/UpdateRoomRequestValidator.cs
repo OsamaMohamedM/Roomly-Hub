@@ -37,6 +37,10 @@ namespace Application.Validators
             RuleFor(x => x)
                 .Must(x => !x.CheckInTime.HasValue || !x.CheckOutTime.HasValue || x.CheckOutTime > x.CheckInTime)
                 .WithMessage("Check-out time must be after check-in time.");
+
+            RuleForEach(x => x.AmenityIds)
+                .NotEmpty().WithMessage("Amenity ID cannot be empty.")
+                .When(x => x.AmenityIds is not null);
         }
     }
 }

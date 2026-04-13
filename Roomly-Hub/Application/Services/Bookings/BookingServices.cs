@@ -50,6 +50,48 @@ namespace Application.Services.Bookings
             _logger = logger;
         }
 
+        public async Task<Result<BookingSummaryDto>> MarkBookingAsPaidByInvoiceIdAsync(string invoiceId, CancellationToken cancellation = default)
+        {
+            if (string.IsNullOrWhiteSpace(invoiceId))
+            {
+                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.BookingNotFound, Errors.Messages.Booking.BookingNotFound);
+            }
+
+            _logger.LogInformation("Marking booking as paid by invoice {InvoiceId}", invoiceId);
+
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                {
+                    var booking = await _bookingRepository.GetBookingByInvoiceIdAsync(invoiceId, token);
+                    if (booking == null)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.BookingNotFound, Errors.Messages.Booking.BookingNotFound);
+                    }
+
+                    if (booking.Status == BookingStatus.Cancelled)
+                    {
+                        return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+                    }
+
+                    if (booking.Status == BookingStatus.Confirmed)
+                    {
+                        return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
+                    }
+
+                    booking.MarkPaymentSucceeded();
+                    await _bookingRepository.UpdateBookingAsync(booking, token);
+                    await _unitOfWork.SaveChangesAsync(token);
+
+                    return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
+                }, cancellation);
+            }
+            catch (ConcurrencyException)
+            {
+                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
+            }
+        }
+
         public async Task<Result<string>> CancelBookingAsync(BookingCancelRequestDto bookingCancelRequestDto, CancellationToken cancellation = default)
         {
             _logger.LogInformation("Starting booking cancellation for booking {BookingId}", bookingCancelRequestDto.BookingId);
@@ -89,14 +131,14 @@ namespace Application.Services.Bookings
             return Result<string>.Success("Booking cancelled successfully.");
         }
 
-        public async Task<Result<string>> CreateBookingAsync(BookingRequestDto bookingRequestDto, CancellationToken cancellation = default)
+        public async Task<Result<CreateBookingResponseDto>> CreateBookingAsync(BookingRequestDto bookingRequestDto, CancellationToken cancellation = default)
         {
             _logger.LogInformation("Starting booking creation for room {RoomId} and guest {GuestId}", bookingRequestDto.RoomId, bookingRequestDto.UserId);
             var validationResult = await _bookingRequestValidator.ValidateAsync(bookingRequestDto, cancellation);
             if (!validationResult.IsValid)
             {
                 _logger.LogWarning("Booking creation validation failed for room {RoomId} and guest {GuestId}", bookingRequestDto.RoomId, bookingRequestDto.UserId);
-                return Result<string>.Failure(
+                return Result<CreateBookingResponseDto>.Failure(
                     Errors.Codes.Common.ValidationError,
                     Errors.Messages.Common.RequestValidationFailed,
                     ValidationHelper.ToErrorDictionary(validationResult));
@@ -109,17 +151,17 @@ namespace Application.Services.Bookings
                     var room = await _roomRepository.GetByIdAsync(bookingRequestDto.RoomId, token);
                     if (room == null)
                     {
-                        return Result<string>.Failure(Errors.Codes.Room.RoomNotFound, $"{Errors.Messages.Room.RoomNotFound} With This Id : {bookingRequestDto.RoomId}");
+                        return Result<CreateBookingResponseDto>.Failure(Errors.Codes.Room.RoomNotFound, $"{Errors.Messages.Room.RoomNotFound} With This Id : {bookingRequestDto.RoomId}");
                     }
 
                     if (!room.CanBeBooked())
                     {
-                        return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                        return Result<CreateBookingResponseDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
 
                     if (HasBlockedDates(room, bookingRequestDto.StartDate, bookingRequestDto.EndDate))
                     {
-                        return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                        return Result<CreateBookingResponseDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
 
                     var canBookRoom = room.BookingMode == BookingMode.RequestAndApprove
@@ -138,13 +180,13 @@ namespace Application.Services.Bookings
 
                     if (!canBookRoom)
                     {
-                        return Result<string>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
+                        return Result<CreateBookingResponseDto>.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
 
                     var nights = (bookingRequestDto.EndDate.Date - bookingRequestDto.StartDate.Date).Days;
                     if (nights <= 0)
                     {
-                        return Result<string>.Failure(Errors.Codes.Booking.InvalidBookingDateRange, Errors.Messages.Booking.InvalidBookingDateRange);
+                        return Result<CreateBookingResponseDto>.Failure(Errors.Codes.Booking.InvalidBookingDateRange, Errors.Messages.Booking.InvalidBookingDateRange);
                     }
 
                     var totalPrice = room.PricePerNight * nights;
@@ -164,19 +206,37 @@ namespace Application.Services.Bookings
                     await _bookingRepository.AddBookingAsync(booking, token);
                     await _unitOfWork.SaveChangesAsync(token);
 
-                    var resultMessage = booking.Status == BookingStatus.Pending
-                        ? "Booking request submitted and awaiting host approval."
-                        : $"Booking is confirmed and the total price is {totalPrice}";
+                    string? paymentUrl = null;
+
+                    if (room.BookingMode == BookingMode.InstantBook)
+                    {
+                        var paymentRequest = BuildPaymentRequest(booking, bookingRequestDto.PaymentMethodId, bookingRequestDto.RedirectionUrls);
+                        var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
+                        if (response == null || string.IsNullOrWhiteSpace(response.Url) || string.IsNullOrWhiteSpace(response.InvoiceId) || string.IsNullOrWhiteSpace(response.InvoiceKey))
+                        {
+                            return Result<CreateBookingResponseDto>.Failure(Errors.Codes.Booking.PaymentFailed, Errors.Messages.Booking.PaymentFailed);
+                        }
+
+                        booking.SetPaymentInvoice(response.InvoiceId, response.InvoiceKey);
+                        await _bookingRepository.UpdateBookingAsync(booking, token);
+                        await _unitOfWork.SaveChangesAsync(token);
+                        paymentUrl = response.Url;
+                    }
 
                     _logger.LogInformation("Booking {BookingId} created successfully with status {Status}", booking.Id, booking.Status);
 
-                    return Result<string>.Success(resultMessage);
+                    return Result<CreateBookingResponseDto>.Success(new CreateBookingResponseDto
+                    {
+                        BookingId = booking.Id,
+                        Status = booking.Status,
+                        PaymentUrl = paymentUrl
+                    });
                 }, cancellation);
             }
             catch (ConcurrencyException)
             {
                 _logger.LogWarning("Booking creation concurrency conflict for room {RoomId} and guest {GuestId}", bookingRequestDto.RoomId, bookingRequestDto.UserId);
-                return Result<string>.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
+                return Result<CreateBookingResponseDto>.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
             }
         }
 
@@ -207,7 +267,7 @@ namespace Application.Services.Bookings
                 return Result<EInvoiceResponseData>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Common.UserNotFound);
             }
 
-            if (booking.Status != BookingStatus.Confirmed)
+            if (booking.Status != BookingStatus.Pending || !booking.IsApprovedByHost)
             {
                 _logger.LogWarning("Payment invoice blocked for booking {BookingId}. Status is {Status}", requestDto.BookingId, booking.Status);
                 return Result<EInvoiceResponseData>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
@@ -219,29 +279,20 @@ namespace Application.Services.Bookings
                 return Result<EInvoiceResponseData>.Failure(Errors.Codes.Booking.InvalidBookingState, "Booking is already paid.");
             }
 
-            var paymentRequest = new EInvoiceRequestModel
-            {
-                PaymentMethodId = requestDto.PaymentMethodId,
-                CartItems = new List<CartItemModel>
-                {
-                    new()
-                    {
-                        Price = booking.TotalPrice,
-                        Quantity = 1
-                    }
-                },
-                PayLoad = new EInvoicePayload
-                {
-                    OrderId = booking.Id.ToString(),
-                },
-                RedirectionUrls = requestDto.RedirectionUrls
-            };
+            var paymentRequest = BuildPaymentRequest(booking, requestDto.PaymentMethodId, requestDto.RedirectionUrls);
 
             var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
             if (response == null)
             {
                 _logger.LogError("Payment invoice creation failed from provider for booking {BookingId}", requestDto.BookingId);
                 return Result<EInvoiceResponseData>.Failure(Errors.Codes.Booking.PaymentFailed, Errors.Messages.Booking.PaymentFailed);
+            }
+
+            if (!string.IsNullOrWhiteSpace(response.InvoiceId) && !string.IsNullOrWhiteSpace(response.InvoiceKey))
+            {
+                booking.SetPaymentInvoice(response.InvoiceId, response.InvoiceKey);
+                await _bookingRepository.UpdateBookingAsync(booking, cancellation);
+                await _unitOfWork.SaveChangesAsync(cancellation);
             }
 
             _logger.LogInformation("Payment invoice created for booking {BookingId} with invoice key {InvoiceKey}", requestDto.BookingId, response.InvoiceKey);
@@ -385,6 +436,11 @@ namespace Application.Services.Bookings
                         return Result.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
                     }
 
+                    if (booking.IsApprovedByHost)
+                    {
+                        return Result.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+                    }
+
                     var canConfirmBooking = await _bookingRepository.IsRoomAvailableAsync(
                         booking.RoomId,
                         booking.CheckInDate,
@@ -398,7 +454,7 @@ namespace Application.Services.Bookings
                         return Result.Failure(Errors.Codes.Booking.RoomNotAvailable, Errors.Messages.Booking.RoomNotAvailable);
                     }
 
-                    booking.MarkAsConfirmed();
+                    booking.ApproveByHost();
 
                     var competingRequests = await _bookingRepository.GetOverlappingPendingRequestsAsync(
                         booking.RoomId,
@@ -471,9 +527,14 @@ namespace Application.Services.Bookings
                         return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
                     }
 
-                    if (booking.PaymentStatus != PaymentStatus.Paid)
+                    if (booking.Status == BookingStatus.Confirmed)
                     {
-                        booking.MarkAsPaid();
+                        return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
+                    }
+
+                    if (booking.PaymentStatus != PaymentStatus.Paid || booking.Status != BookingStatus.Confirmed)
+                    {
+                        booking.MarkPaymentSucceeded();
                         await _bookingRepository.UpdateBookingAsync(booking, token);
                         await _unitOfWork.SaveChangesAsync(token);
                         _logger.LogInformation("Booking {BookingId} marked as paid", bookingId);
@@ -532,6 +593,70 @@ namespace Application.Services.Bookings
             var bookings = await _bookingRepository.GetRoomBookingsForHostAsync(hostId, roomId, from, to, cancellation);
             var result = bookings.Select(_bookingMapper.ToHostRequestDto).ToList();
             return Result<IEnumerable<HostBookingRequestDto>>.Success(result);
+        }
+
+        public async Task<Result<BookingPaymentLinkResponseDto>> GetBookingPaymentLinkAsync(Guid guestId, Guid bookingId, CancellationToken cancellation = default)
+        {
+            _logger.LogInformation("Generating payment link for booking {BookingId} and guest {GuestId}", bookingId, guestId);
+
+            var booking = await _bookingRepository.GetBookingByIdAsync(bookingId, cancellation);
+            if (booking == null)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.BookingNotFound, Errors.Messages.Booking.BookingNotFound);
+            }
+
+            if (booking.GuestId != guestId)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Common.UserNotFound);
+            }
+
+            if (booking.Status != BookingStatus.Pending || !booking.IsApprovedByHost || booking.PaymentStatus == PaymentStatus.Paid)
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+            }
+
+            var paymentRequest = BuildPaymentRequest(booking, null, null);
+            var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
+            if (response == null || string.IsNullOrWhiteSpace(response.Url) || string.IsNullOrWhiteSpace(response.InvoiceId) || string.IsNullOrWhiteSpace(response.InvoiceKey))
+            {
+                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.PaymentFailed, Errors.Messages.Booking.PaymentFailed);
+            }
+
+            booking.SetPaymentInvoice(response.InvoiceId, response.InvoiceKey);
+            await _bookingRepository.UpdateBookingAsync(booking, cancellation);
+            await _unitOfWork.SaveChangesAsync(cancellation);
+
+            return Result<BookingPaymentLinkResponseDto>.Success(new BookingPaymentLinkResponseDto
+            {
+                BookingId = booking.Id,
+                Status = booking.Status,
+                PaymentUrl = response.Url
+            });
+        }
+
+        private static EInvoiceRequestModel BuildPaymentRequest(Booking booking, int? paymentMethodId, EInvoiceRedirectionUrls? redirectionUrls)
+        {
+            return new EInvoiceRequestModel
+            {
+                PaymentMethodId = paymentMethodId,
+                CartItems = new List<CartItemModel>
+                {
+                    new()
+                    {
+                        Currency = "EGP",
+                        Description = "Booking Payment",
+                        PricePerNight = booking.Room.PricePerNight,
+                        Tax =0,
+                        Quantity  = 1,
+                        Total = booking.TotalPrice
+                    }
+                },
+                PayLoad = new EInvoicePayload
+                {
+                    OrderId = booking.Id.ToString(),
+                },
+                RedirectionUrls = redirectionUrls
+            };
         }
 
         private static bool HasBlockedDates(Domain.Entities.Rooms.Room room, DateTime checkIn, DateTime checkOut)

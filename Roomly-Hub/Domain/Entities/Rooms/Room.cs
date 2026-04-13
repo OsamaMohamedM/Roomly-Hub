@@ -63,8 +63,8 @@ namespace Domain.Entities.Rooms
             if (maxGuests <= 0)
                 throw new ArgumentException("Max guests must be greater than zero.", nameof(maxGuests));
 
-            if (checkOutTime <= checkInTime)
-                throw new ArgumentException("Check-out time must be after check-in time.");
+            //if (checkOutTime <= checkInTime)
+            //    throw new ArgumentException("Check-out time must be after check-in time.");
 
             var room = new Room
             {

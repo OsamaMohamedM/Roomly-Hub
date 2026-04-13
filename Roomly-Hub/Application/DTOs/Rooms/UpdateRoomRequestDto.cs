@@ -10,5 +10,6 @@ namespace Application.DTOs
         public TimeSpan? CheckOutTime { get; set; }
         public string? BookingMode { get; set; }
         public bool? FreeCancellation { get; set; }
+        public List<Guid>? AmenityIds { get; set; }
     }
 }

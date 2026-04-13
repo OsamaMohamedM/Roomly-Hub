@@ -14,6 +14,6 @@ namespace Application.DTOs
         public TimeSpan CheckInTime { get; set; }
         public TimeSpan CheckOutTime { get; set; }
         public bool FreeCancellation { get; set; }
-        public List<string> Amenities { get; set; } = [];
+        public List<Guid> AmenityIds { get; set; } = [];
     }
 }

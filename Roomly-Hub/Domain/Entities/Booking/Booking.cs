@@ -20,6 +20,9 @@ namespace Domain.Entities.Booking
         public CancellationPolicy CancellationPolicy { get; private set; }
         public PaymentMethod PaymentMethod { get; private set; }
         public PaymentStatus PaymentStatus { get; private set; }
+        public bool IsApprovedByHost { get; private set; }
+        public string? PaymentInvoiceId { get; private set; }
+        public string? PaymentInvoiceKey { get; private set; }
         public DateTime? CancelledAt { get; private set; }
         public Guid? CancelledBy { get; private set; }
         public User User { get; private set; }
@@ -40,9 +43,8 @@ namespace Domain.Entities.Booking
             if (checkInDate >= checkOutDate)
                 throw new ArgumentException("Check-out date must be after check-in date.");
 
-            var initialStatus = bookingMode == BookingMode.RequestAndApprove
-                ? BookingStatus.Pending
-                : BookingStatus.Confirmed;
+            var initialStatus = BookingStatus.Pending;
+            var isApprovedByHost = bookingMode != BookingMode.RequestAndApprove;
 
             return new Booking
             {
@@ -57,7 +59,8 @@ namespace Domain.Entities.Booking
                 BookingMode = bookingMode,
                 Source = sourceStatus,
                 CancellationPolicy = cancellationPolicy,
-                Status = initialStatus
+                Status = initialStatus,
+                IsApprovedByHost = isApprovedByHost
             };
         }
 
@@ -99,6 +102,32 @@ namespace Domain.Entities.Booking
             if (Status == BookingStatus.Confirmed)
                 throw new InvalidOperationException("Booking is already confirmed.");
             Status = BookingStatus.Confirmed;
+        }
+
+        public void ApproveByHost()
+        {
+            IsApprovedByHost = true;
+            MarkUpdated();
+        }
+
+        public void SetPaymentInvoice(string invoiceId, string invoiceKey)
+        {
+            PaymentInvoiceId = invoiceId;
+            PaymentInvoiceKey = invoiceKey;
+            MarkUpdated();
+        }
+
+        public void MarkPaymentSucceeded()
+        {
+            if (PaymentStatus != PaymentStatus.Paid)
+            {
+                PaymentStatus = PaymentStatus.Paid;
+            }
+
+            if (Status != BookingStatus.Confirmed)
+            {
+                Status = BookingStatus.Confirmed;
+            }
         }
 
         public void MarkAsPending()

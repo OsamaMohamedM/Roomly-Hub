@@ -36,6 +36,30 @@ namespace Roomly_Hub.Controllers.Bookings
             return Ok(result.Value);
         }
 
+        [HttpGet("{bookingId:guid}/payment-link")]
+        public async Task<IActionResult> GetBookingPaymentLink(Guid bookingId, CancellationToken cancellationToken)
+        {
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _bookingServices.GetBookingPaymentLinkAsync(userId.Value, bookingId, cancellationToken);
+            if (result.IsFailure)
+            {
+                return result.ErrorCode switch
+                {
+                    var code when code == Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
+                    var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
+                    var code when code == Errors.Codes.Booking.InvalidBookingState => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Invalid booking state")),
+                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
         [HttpGet("host/rooms/{roomId:guid}/calendar")]
         public async Task<IActionResult> GetHostRoomCalendar(Guid roomId, [FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken cancellationToken)
         {

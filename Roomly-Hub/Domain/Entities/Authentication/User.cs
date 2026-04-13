@@ -91,14 +91,11 @@ namespace Domain.Entities
             };
         }
 
-        public bool IsRefreshTokenRevoked(string tokenHash)
-        {
-            return _refreshTokens.Any(t => t.TokenHash == tokenHash && !t.IsActive());
-        }
+
 
         public bool IsRefreshTokenExpired(string tokenHash)
         {
-            return _refreshTokens.Any(t => t.TokenHash == tokenHash && t.IsActive());
+            return _refreshTokens.Any(t => t.TokenHash == tokenHash && !t.IsActive());
         }
 
         public void SetPasswordHash(string hash)

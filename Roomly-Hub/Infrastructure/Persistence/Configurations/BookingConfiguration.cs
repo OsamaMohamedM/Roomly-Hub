@@ -53,6 +53,16 @@ namespace Infrastructure.Persistence.Configurations
                 .HasConversion<string>()
                 .IsRequired();
 
+            builder.Property(b => b.IsApprovedByHost)
+                .HasDefaultValue(false)
+                .IsRequired();
+
+            builder.Property(b => b.PaymentInvoiceId)
+                .HasMaxLength(100);
+
+            builder.Property(b => b.PaymentInvoiceKey)
+                .HasMaxLength(200);
+
             builder.Property(b => b.CancelledAt);
             builder.Property(b => b.CancelledBy);
 
@@ -68,6 +78,7 @@ namespace Infrastructure.Persistence.Configurations
 
             builder.HasIndex(b => b.RoomId);
             builder.HasIndex(b => b.GuestId);
+            builder.HasIndex(b => b.PaymentInvoiceId);
             builder.HasIndex(b => new { b.RoomId, b.CheckInDate, b.CheckOutDate });
         }
     }

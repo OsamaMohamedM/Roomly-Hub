@@ -25,6 +25,10 @@ namespace Application.Validators.Booking
 
             RuleFor(x => x.PaymentMethod)
                 .IsInEnum().WithMessage("Invalid payment method.");
+
+            RuleFor(x => x.PaymentMethodId)
+                .GreaterThan(0).WithMessage("PaymentMethodId must be greater than 0.")
+                .When(x => x.PaymentMethodId.HasValue);
         }
     }
 }

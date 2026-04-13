@@ -98,7 +98,7 @@ namespace Application.Services
             if (user.IsLocked)
                 return Result<TokenResponseDto>.Failure(Errors.Codes.Auth.AccountLocked, Errors.Messages.Auth.AccountLocked);
 
-            if (user.IsRefreshTokenRevoked(tokenHash))
+            if (user.IsRefreshTokenExpired(tokenHash))
             {
                 user.RevokeAllRefreshTokens();
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
