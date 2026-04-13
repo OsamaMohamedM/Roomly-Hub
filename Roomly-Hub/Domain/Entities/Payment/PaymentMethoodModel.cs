@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+﻿using Newtonsoft.Json;
 
 namespace Domain.Entities.Payment
 {
@@ -7,10 +7,10 @@ namespace Domain.Entities.Payment
         public int Id { get; set; }
         public int PaymentId { get; set; }
 
-        [JsonPropertyName("name_en")]
+        [JsonProperty("name_en")]
         public string NameEn { get; set; }
 
-        [JsonPropertyName("name_ar")]
+        [JsonProperty("name_ar")]
         public string NameAr { get; set; }
 
         public string Redirect { get; set; }

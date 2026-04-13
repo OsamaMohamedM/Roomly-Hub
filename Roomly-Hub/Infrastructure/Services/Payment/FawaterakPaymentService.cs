@@ -5,10 +5,11 @@ using Domain.enums.Booking;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using PaymentMethoodModel = Domain.Entities.Payment.PaymentMethoodModel;
 
 namespace Infrastructure.Services.Payment
@@ -41,21 +42,34 @@ namespace Infrastructure.Services.Payment
                 if (eInvoice == null)
                     return null;
 
+                EnsureInvoiceDefaults(eInvoice);
+
                 _logger.LogInformation("Creating Fawaterak invoice for payment method {PaymentMethodId}", eInvoice.PaymentMethodId);
 
                 var client = _httpClientFactory.CreateClient();
                 var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/createInvoiceLink");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
                 request.Content = new StringContent(JsonConvert.SerializeObject(eInvoice), Encoding.UTF8, "application/json");
-
                 var response = await client.SendAsync(request);
-                if (response == null)
-                    return null;
 
                 if (response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
-                    var eInvoiceResponse = JsonConvert.DeserializeObject<EInvoiceResponseData>(responseContent);
+                    var wrappedResponse = JsonConvert.DeserializeObject<EInvoiceResponseModel>(responseContent);
+                    var eInvoiceResponse = wrappedResponse?.Data;
+
+                    if (eInvoiceResponse == null)
+                    {
+                        var token = JObject.Parse(responseContent);
+                        var data = token["data"] ?? token;
+                        eInvoiceResponse = new EInvoiceResponseData
+                        {
+                            InvoiceId = data["invoiceId"]?.ToString() ?? data["invoice_id"]?.ToString() ?? string.Empty,
+                            InvoiceKey = data["invoiceKey"]?.ToString() ?? data["invoice_key"]?.ToString() ?? string.Empty,
+                            Url = data["url"]?.ToString() ?? data["invoice_url"]?.ToString() ?? data["payment_url"]?.ToString() ?? data["redirectTo"]?.ToString() ?? string.Empty
+                        };
+                    }
+
                     _logger.LogInformation("Fawaterak invoice created successfully");
                     return eInvoiceResponse;
                 }
@@ -87,9 +101,7 @@ namespace Infrastructure.Services.Payment
                 if (result.IsSuccessStatusCode)
                 {
                     var responseContent = await result.Content.ReadAsStringAsync();
-                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    var paymentMethodsResponse = System.Text.Json.JsonSerializer.Deserialize<PaymentMethodsResponse>(responseContent, options);
-                    
+                    var paymentMethodsResponse = JsonConvert.DeserializeObject<PaymentMethodsResponse>(responseContent);
 
                     if (paymentMethodsResponse?.Data != null)
                     {
@@ -149,6 +161,8 @@ namespace Infrastructure.Services.Payment
                 if (invoice?.PaymentMethodId == null)
                     return null;
 
+                EnsureInvoiceDefaults(invoice);
+
                 _logger.LogInformation("Processing general pay for payment method {PaymentMethodId}", invoice.PaymentMethodId);
 
                 var client = _httpClientFactory.CreateClient();
@@ -183,6 +197,99 @@ namespace Infrastructure.Services.Payment
                 _logger.LogError(ex, "Failed to process Fawaterak payment.");
                 return null;
             }
+        }
+
+        private static void EnsureInvoiceDefaults(EInvoiceRequestModel invoice)
+        {
+            EnsureCurrency(invoice);
+            EnsureCustomer(invoice);
+            EnsureRedirectionUrls(invoice);
+            EnsureCartItems(invoice);
+            EnsureCartTotal(invoice);
+        }
+
+        private static void EnsureCurrency(EInvoiceRequestModel invoice)
+        {
+            if (string.IsNullOrWhiteSpace(invoice.Currency))
+            {
+                invoice.Currency = "EGP";
+            }
+        }
+
+        private static void EnsureCustomer(EInvoiceRequestModel invoice)
+        {
+            invoice.Customer ??= new CustomerModel();
+            invoice.Customer.FirstName ??= "Guest";
+            invoice.Customer.LastName ??= "Guest";
+            invoice.Customer.Email ??= "guest@roomly.com";
+        }
+
+        private static void EnsureRedirectionUrls(EInvoiceRequestModel invoice)
+        {
+            invoice.RedirectionUrls ??= new EInvoiceRedirectionUrls();
+            invoice.RedirectionUrls.OnSuccess ??= "https://example.com/success";
+            invoice.RedirectionUrls.OnFailure ??= "https://example.com/fail";
+            invoice.RedirectionUrls.OnPending ??= "https://example.com/pending";
+        }
+
+        private static void EnsureCartItems(EInvoiceRequestModel invoice)
+        {
+            invoice.CartItems ??= new List<CartItemModel>();
+            if (invoice.CartItems.Count == 0)
+            {
+                invoice.CartItems.Add(new CartItemModel
+                {
+                    Name = "Booking",
+                    Price = "0.00",
+                    Quantity = "1"
+                });
+            }
+
+            foreach (var item in invoice.CartItems)
+            {
+                item.Name ??= "Booking";
+                item.Price = NormalizeDecimalString(item.Price);
+                item.Quantity = NormalizeQuantityString(item.Quantity);
+            }
+        }
+
+        private static void EnsureCartTotal(EInvoiceRequestModel invoice)
+        {
+            if (string.IsNullOrWhiteSpace(invoice.CartTotal) || !decimal.TryParse(invoice.CartTotal, NumberStyles.Any, CultureInfo.InvariantCulture, out _))
+            {
+                var total = invoice.CartItems.Sum(x =>
+                {
+                    var price = decimal.TryParse(x.Price, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedPrice) ? parsedPrice : 0m;
+                    var quantity = decimal.TryParse(x.Quantity, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsedQuantity) ? parsedQuantity : 0m;
+                    return price * quantity;
+                });
+
+                invoice.CartTotal = total.ToString("F2", CultureInfo.InvariantCulture);
+            }
+            else
+            {
+                invoice.CartTotal = decimal.Parse(invoice.CartTotal, NumberStyles.Any, CultureInfo.InvariantCulture).ToString("F2", CultureInfo.InvariantCulture);
+            }
+        }
+
+        private static string NormalizeDecimalString(string? value)
+        {
+            if (!decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
+            {
+                parsed = 0m;
+            }
+
+            return parsed.ToString("F2", CultureInfo.InvariantCulture);
+        }
+
+        private static string NormalizeQuantityString(string? value)
+        {
+            if (!decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
+            {
+                parsed = 1m;
+            }
+
+            return parsed.ToString("0", CultureInfo.InvariantCulture);
         }
 
         public bool VerifyWebhook(WebHookModel webHook)

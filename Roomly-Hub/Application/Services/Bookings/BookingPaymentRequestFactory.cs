@@ -1,6 +1,7 @@
 using Application.DTOs.Payment.FawaterkRequest;
 using Application.Interfaces.Services.Bookings;
 using Domain.Entities.Booking;
+using System.Globalization;
 
 namespace Application.Services.Bookings
 {
@@ -11,21 +12,22 @@ namespace Application.Services.Bookings
             return new EInvoiceRequestModel
             {
                 PaymentMethodId = paymentMethodId,
+                CartTotal = booking.TotalPrice.ToString("F2", CultureInfo.InvariantCulture),
+                Currency = "EGP",
+                Customer = new CustomerModel
+                {
+                    FirstName = booking.User?.Name ?? "Guest",
+                    LastName = "Guest",
+                    Email = booking.User?.Email ?? "guest@roomly.com",
+                },
                 CartItems = new List<CartItemModel>
                 {
                     new()
                     {
-                        Currency = "EGP",
-                        Description = "Booking Payment",
-                        PricePerNight = booking.Room.PricePerNight,
-                        Tax = 0,
-                        Quantity = 1,
-                        Total = booking.TotalPrice
+                        Name = $"Booking Room: {booking.Room.Title}",
+                        Price = booking.TotalPrice.ToString("F2",CultureInfo.InvariantCulture),
+                        Quantity = "1"
                     }
-                },
-                PayLoad = new EInvoicePayload
-                {
-                    OrderId = booking.Id.ToString(),
                 },
                 RedirectionUrls = redirectionUrls
             };

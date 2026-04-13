@@ -19,6 +19,7 @@ namespace Infrastructure.Repositories
         {
             return await _context.Set<Booking>()
                 .Include(b => b.Room)
+                .Include(b => b.User)
                 .FirstOrDefaultAsync(b => b.Id == bookingId && !b.IsDeleted, cancellation);
         }
 

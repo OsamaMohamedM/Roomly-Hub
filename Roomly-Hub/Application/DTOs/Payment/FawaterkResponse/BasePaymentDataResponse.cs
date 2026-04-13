@@ -1,9 +1,13 @@
-﻿namespace Application.DTOs.Payment
+﻿using Newtonsoft.Json;
+
+namespace Application.DTOs.Payment
 {
     public abstract class BasePaymentDataResponse
     {
-        public string InvoiceId { get; set; }
-
+        [JsonProperty("invoiceKey")]
         public string InvoiceKey { get; set; }
+
+        [JsonProperty("invoiceId")]
+        public string InvoiceId { get; set; }
     }
 }
