@@ -57,4 +57,3 @@ nunit-*.xml
 .vs
 *.http
 *.json
-*.md
