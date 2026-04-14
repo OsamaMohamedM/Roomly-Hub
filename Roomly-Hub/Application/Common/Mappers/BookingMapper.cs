@@ -6,6 +6,7 @@ namespace Application.Common.Mappers
     public interface IBookingMapper
     {
         BookingSummaryDto ToSummaryDto(Booking booking);
+
         HostBookingRequestDto ToHostRequestDto(Booking booking);
     }
 
@@ -19,8 +20,8 @@ namespace Application.Common.Mappers
                 GuestId = booking.GuestId,
                 Room = booking.Room,
                 Status = booking.Status,
-                PaymentMethod = booking.PaymentMethod,
-                PaymentStatus = booking.PaymentStatus,
+                PaymentMethod = booking.PaymentMethod.ToString(),
+                PaymentStatus = booking.PaymentStatus.ToString(),
                 TotalPrice = booking.TotalPrice,
                 CheckInDate = booking.CheckInDate,
                 CheckOutDate = booking.CheckOutDate,

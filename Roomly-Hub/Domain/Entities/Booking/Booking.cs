@@ -123,7 +123,7 @@ namespace Domain.Entities.Booking
             MarkUpdated();
         }
 
-        public void MarkPaymentSucceeded()
+        public void MarkPaymentSucceeded(PaymentMethod paymentMethod)
         {
             if (PaymentStatus != PaymentStatus.Paid)
             {
@@ -134,6 +134,7 @@ namespace Domain.Entities.Booking
             {
                 Status = BookingStatus.Confirmed;
             }
+            PaymentMethod = paymentMethod;
         }
 
         public void MarkAsPending()

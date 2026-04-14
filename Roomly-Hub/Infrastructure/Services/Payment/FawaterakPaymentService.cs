@@ -304,7 +304,7 @@ namespace Infrastructure.Services.Payment
                 var generatedHashKey = GenerateHashKeyForWebhookVerification(
                     webHook.InvoiceId,
                     webHook.InvoiceKey,
-                    webHook.PaymentMethod);
+                    webHook.PaymentMethod.ToString());
 
                 var generatedBytes = Encoding.UTF8.GetBytes(generatedHashKey);
                 var receivedBytes = Encoding.UTF8.GetBytes(webHook.HashKey.ToLowerInvariant());

@@ -134,6 +134,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IKycSubmissionRepository, KycSubmissionRepository>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IPaymentWebhookLogRepository, PaymentWebhookLogRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IPaymentService, FawaterakPaymentService>();
 builder.Services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
@@ -174,6 +175,12 @@ builder.Services.AddExceptionHandler<ExceptionHandlingMiddleware>();
 builder.Services.AddProblemDetails();
 
 var app = builder.Build();
+
+app.Use(async (context, next) =>
+{
+    context.Request.EnableBuffering();
+    await next(context);
+});
 
 if (app.Environment.IsDevelopment())
 {

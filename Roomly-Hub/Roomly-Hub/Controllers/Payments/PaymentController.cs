@@ -1,7 +1,5 @@
-using Application.DTOs.Booking;
 using Application.DTOs.Payment;
 using Application.Interfaces.Services;
-using Domain.enums.Booking;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Roomly_Hub.Common;
@@ -13,18 +11,15 @@ namespace Roomly_Hub.Controllers.Payments
     public class PaymentController : ApiControllerBase
     {
         private readonly IPaymentService _paymentService;
-        private readonly IPaymentWebhookService _paymentWebhookService;
         private readonly IBookingServices _bookingServices;
         private readonly ILogger<PaymentController> _logger;
 
         public PaymentController(
             IPaymentService paymentService,
-            IPaymentWebhookService paymentWebhookService,
             IBookingServices bookingServices,
             ILogger<PaymentController> logger)
         {
             _paymentService = paymentService;
-            _paymentWebhookService = paymentWebhookService;
             _bookingServices = bookingServices;
             _logger = logger;
         }
@@ -128,64 +123,5 @@ namespace Roomly_Hub.Controllers.Payments
             return Ok(result.Value);
         }
 
-        [AllowAnonymous]
-        [HttpPost("webhook")]
-        public async Task<IActionResult> HandleWebhook([FromBody] WebHookModel webhook, CancellationToken cancellationToken)
-        {
-            var result = await _paymentWebhookService.HandleSuccessWebhookAsync(webhook, cancellationToken);
-            if (result.IsFailure)
-            {
-                return result.ErrorCode switch
-                {
-                    var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Common.UnauthorizedAction => Unauthorized(CreateProblemDetails(result, StatusCodes.Status401Unauthorized, "Unauthorized")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Booking.InvalidBookingState => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Invalid booking state")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
-                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
-                };
-            }
-
-            return Ok();
-        }
-
-        [AllowAnonymous]
-        [HttpPost("webhook/failed")]
-        public async Task<IActionResult> HandleFailedWebhook([FromBody] FaliledWebHook webhook, CancellationToken cancellationToken)
-        {
-            var result = await _paymentWebhookService.HandleFailedWebhookAsync(webhook, cancellationToken);
-            if (result.IsFailure)
-            {
-                return result.ErrorCode switch
-                {
-                    var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
-                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
-                };
-            }
-
-            return Ok();
-        }
-
-        [AllowAnonymous]
-        [HttpPost("webhook/cancel")]
-        public async Task<IActionResult> HandleCancelWebhook([FromBody] CancelTransactionModel cancelTransaction, CancellationToken cancellationToken)
-        {
-            var result = await _paymentWebhookService.HandleCancelledWebhookAsync(cancelTransaction, cancellationToken);
-            if (result.IsFailure)
-            {
-                return result.ErrorCode switch
-                {
-                    var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Common.UnauthorizedAction => Unauthorized(CreateProblemDetails(result, StatusCodes.Status401Unauthorized, "Unauthorized")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Booking.InvalidBookingState => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Invalid booking state")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
-                    var code when code == Application.Common.Constants.Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
-                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
-                };
-            }
-
-            return Ok();
-        }
     }
 }
