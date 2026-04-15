@@ -7,6 +7,8 @@ namespace Application.Interfaces.Services
     {
         Task<Result> HandleSuccessWebhookAsync(WebHookModel webhook, CancellationToken cancellationToken = default);
 
+        Task<Result> HandleSuccessWebhookAsync(string invoiceReference, CancellationToken cancellationToken = default);
+
         Task<Result> HandleFailedWebhookAsync(FaliledWebHook webhook, CancellationToken cancellationToken = default);
 
         Task<Result> HandleCancelledWebhookAsync(CancelTransactionModel cancelTransaction, CancellationToken cancellationToken = default);

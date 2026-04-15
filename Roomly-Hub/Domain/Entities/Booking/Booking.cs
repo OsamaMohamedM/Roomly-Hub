@@ -157,5 +157,21 @@ namespace Domain.Entities.Booking
                 throw new InvalidOperationException("Booking is already cancelled.");
             Status = BookingStatus.Cancelled;
         }
+
+        public void CancelDueToNonPayment()
+        {
+            if (Status != BookingStatus.AwaitingPayment)
+                throw new InvalidOperationException("Only bookings awaiting payment can be cancelled due to non-payment.");
+            Status = BookingStatus.Expired;
+            MarkUpdated();
+        }
+
+        public void ExpireDueToHostInactivity()
+        {
+            if (Status != BookingStatus.PendingHostApproval)
+                throw new InvalidOperationException("Only bookings pending host approval can expire due to host inactivity.");
+            Status = BookingStatus.Expired;
+            MarkUpdated();
+        }
     }
 }

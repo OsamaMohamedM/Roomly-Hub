@@ -1,6 +1,5 @@
 using Newtonsoft.Json;
 
-
 namespace Application.DTOs.Payment
 {
     public class EInvoiceResponseData : BasePaymentDataResponse

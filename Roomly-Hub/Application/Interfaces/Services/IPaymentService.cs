@@ -1,6 +1,7 @@
 ﻿using Application.DTOs.Payment;
 using Application.DTOs.Payment.FawaterkRequest;
 using Domain.Entities.Payment;
+using Domain.enums.Booking;
 
 namespace Application.Interfaces.Services
 {
@@ -17,5 +18,7 @@ namespace Application.Interfaces.Services
         bool VerifyCancelTransaction(CancelTransactionModel cancelTransaction);
 
         bool VerifyApiKeyTransaction(string apiKey);
+
+        Task<PaymentStatus> CheckInvoiceStatusAsync(string invoiceReference);
     }
 }

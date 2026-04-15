@@ -6,6 +6,6 @@ namespace Application.DTOs.Payment
     {
         public Guid BookingId { get; set; }
         public BookingStatus BookingStatus { get; set; }
-        public PaymentStatus PaymentStatus { get; set; }
+        public string PaymentStatus { get; set; }
     }
 }

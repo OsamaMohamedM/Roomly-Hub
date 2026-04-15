@@ -5,12 +5,15 @@ using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Interfaces.Services.Bookings;
 using Application.Services;
+using Application.Services.BackGroundJobs;
 using Application.Services.Bookings;
 using Application.Services.Payments;
 using Application.Services.RoomCRUD;
 using Application.Validators;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Infrastructure.Persistence;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
@@ -23,8 +26,8 @@ using Microsoft.OpenApi;
 using Roomly_Hub.Common;
 using Roomly_Hub.Middleware;
 using Serilog;
-using System.Text.Json;
 using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,6 +35,13 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .ReadFrom.Services(services)
     .Enrich.FromLogContext());
+
+builder.Services.AddHangfire(configuration => configuration
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(options =>
+        options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"))));
+builder.Services.AddHangfireServer();
 
 builder.Services.AddControllers();
 builder.Services.Configure<ApiBehaviorOptions>(options =>
@@ -157,6 +167,8 @@ builder.Services.AddScoped<IBookingCommandService, BookingCommandService>();
 builder.Services.AddScoped<IBookingQueryService, BookingQueryService>();
 builder.Services.AddScoped<IBookingPaymentFlowService, BookingPaymentFlowService>();
 builder.Services.AddScoped<IBookingServices, BookingServices>();
+builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
+builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(options =>
@@ -192,6 +204,23 @@ app.UseExceptionHandler();
 app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseAuthentication();
+app.UseHangfireDashboard("/hangfire");
 app.UseAuthorization();
 app.MapControllers();
+
+RecurringJob.AddOrUpdate<IBookingTimeoutService>(
+    "booking-timeout-unpaid-hourly",
+    job => job.ProcessUnpaidBookingsAsync(),
+    Cron.Hourly);
+
+RecurringJob.AddOrUpdate<IBookingTimeoutService>(
+    "booking-timeout-host-approval-hourly",
+    job => job.ProcessExpiredHostApprovalsAsync(),
+    Cron.Hourly);
+
+RecurringJob.AddOrUpdate<IPaymentReconciliationService>(
+    "payment-reconciliation-daily",
+    job => job.ReconcilePendingPaymentsAsync(),
+    Cron.Daily);
+
 app.Run();

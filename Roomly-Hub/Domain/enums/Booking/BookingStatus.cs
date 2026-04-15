@@ -9,6 +9,6 @@
         Confirmed,
         Cancelled,
         Completed,
-        Disputed
+        Expired
     }
 }

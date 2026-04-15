@@ -6,6 +6,7 @@
         Pending = 1,
         Paid = 2,
         Refunded = 3,
-        PartialRefund = 4
+        PartialRefund = 4,
+        Failed = 5
     }
 }

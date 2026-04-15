@@ -1,5 +1,6 @@
 ﻿using Application.DTOs.Payment;
 using Application.DTOs.Payment.FawaterkRequest;
+using Application.DTOs.Payment.FawaterkResponse;
 using Application.Interfaces.Services;
 using Domain.enums.Booking;
 using Microsoft.Extensions.Logging;
@@ -378,6 +379,37 @@ namespace Infrastructure.Services.Payment
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(ApiKey));
             var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(queryParam));
             return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+        }
+
+        public async Task<PaymentStatus> CheckInvoiceStatusAsync(string invoiceReference)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(invoiceReference))
+                    return PaymentStatus.Failed;
+
+                var client = _httpClientFactory.CreateClient();
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/getInvoiceData/{invoiceReference}");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
+
+                var response = await client.SendAsync(request);
+                if (!response.IsSuccessStatusCode)
+                    return PaymentStatus.Failed;
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                var invoiceStatusResponse = JsonConvert.DeserializeObject<InvoiceStatusResponse>(responseContent);
+
+                if (invoiceStatusResponse == null || !string.Equals(invoiceStatusResponse.Status, "success", StringComparison.OrdinalIgnoreCase) || invoiceStatusResponse.Data == null)
+                    return PaymentStatus.Failed;
+
+                return invoiceStatusResponse.Data.Paid == 1
+                    ? PaymentStatus.Paid
+                    : PaymentStatus.Pending;
+            }
+            catch
+            {
+                return PaymentStatus.Failed;
+            }
         }
     }
 }

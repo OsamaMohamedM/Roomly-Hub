@@ -151,6 +151,44 @@ namespace Application.Services.Payments
             }
         }
 
+        public async Task<Result> HandleSuccessWebhookAsync(string invoiceReference, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(invoiceReference))
+                return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
+
+            var booking = await _bookingRepository.GetBookingByInvoiceIdAsync(invoiceReference, cancellationToken);
+            if (booking == null)
+                return Result.Failure(Errors.Codes.Booking.BookingNotFound, Errors.Messages.Booking.BookingNotFound);
+
+            if (booking.PaymentStatus == PaymentStatus.Paid || booking.Status == BookingStatus.Confirmed)
+                return Result.Success();
+
+            if (booking.Status == BookingStatus.Cancelled || booking.Status == BookingStatus.PendingHostApproval)
+                return Result.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
+
+            try
+            {
+                return await _unitOfWork.ExecuteInTransactionAsync(async token =>
+                {
+                    var latestBooking = await _bookingRepository.GetBookingByIdAsync(booking.Id, token);
+                    if (latestBooking == null)
+                        return Result.Failure(Errors.Codes.Booking.BookingNotFound, Errors.Messages.Booking.BookingNotFound);
+
+                    if (latestBooking.PaymentStatus == PaymentStatus.Paid || latestBooking.Status == BookingStatus.Confirmed)
+                        return Result.Success();
+
+                    latestBooking.MarkPaymentSucceeded(latestBooking.PaymentMethod);
+                    await _bookingRepository.UpdateBookingAsync(latestBooking, token);
+                    await _unitOfWork.SaveChangesAsync(token);
+                    return Result.Success();
+                }, cancellationToken);
+            }
+            catch (ConcurrencyException)
+            {
+                return Result.Failure(Errors.Codes.Booking.ConcurrencyConflict, Errors.Messages.Booking.ConcurrencyConflict);
+            }
+        }
+
         public async Task<Result> HandleFailedWebhookAsync(FaliledWebHook webhook, CancellationToken cancellationToken = default)
         {
             if (webhook == null)
@@ -281,7 +319,7 @@ namespace Application.Services.Payments
                     await _unitOfWork.SaveChangesAsync(token);
                     webhookLog.MarkAsProcessed(true);
                     await _webhookLogRepository.UpdateAsync(webhookLog, cancellationToken);
-                    _logger.LogInformation("Cancellation webhook processed for booking {BookingId}", latestBooking.Id);
+                    _logger.LogInformation("Cancellation webhook processed successfully for booking {BookingId}", latestBooking.Id);
                     return Result.Success();
                 }, cancellationToken);
             }
@@ -296,15 +334,9 @@ namespace Application.Services.Payments
 
         private async Task<Domain.Entities.Booking.Booking?> ResolveBookingForCancellation(CancelTransactionModel cancelTransaction, CancellationToken cancellationToken)
         {
-            if (Guid.TryParse(cancelTransaction.ReferenceId, out var bookingId))
+            if (!string.IsNullOrWhiteSpace(cancelTransaction.ReferenceId))
             {
-                return await _bookingRepository.GetBookingByIdAsync(bookingId, cancellationToken);
-            }
-
-            var byInvoice = await _bookingRepository.GetBookingByInvoiceIdAsync(cancelTransaction.ReferenceId, cancellationToken);
-            if (byInvoice != null)
-            {
-                return byInvoice;
+                return await _bookingRepository.GetBookingByInvoiceIdAsync(cancelTransaction.ReferenceId, cancellationToken);
             }
 
             return null;

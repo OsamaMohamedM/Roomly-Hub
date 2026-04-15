@@ -80,7 +80,7 @@ namespace Application.Services.Bookings
                         return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
                     }
 
-                    booking.MarkPaymentSucceeded();
+                    booking.MarkPaymentSucceeded(booking.PaymentMethod);
                     await _bookingRepository.UpdateBookingAsync(booking, token);
                     await _unitOfWork.SaveChangesAsync(token);
 
@@ -124,7 +124,7 @@ namespace Application.Services.Bookings
 
                     if (booking.PaymentStatus != PaymentStatus.Paid || booking.Status != BookingStatus.Confirmed)
                     {
-                        booking.MarkPaymentSucceeded();
+                        booking.MarkPaymentSucceeded(booking.PaymentMethod);
                         await _bookingRepository.UpdateBookingAsync(booking, token);
                         await _unitOfWork.SaveChangesAsync(token);
                         _logger.LogInformation("Booking {BookingId} marked as paid", bookingId);

@@ -39,5 +39,9 @@ namespace Domain.Interfaces.Repositories
             DateTime checkOut,
             Guid excludedBookingId,
             CancellationToken cancellation = default);
+
+        public Task<IEnumerable<Booking>> GetUnpaidBookingsOlderThanAsync(DateTime cutoffTime);
+
+        public Task<IEnumerable<Booking>> GetPendingHostApprovalsOlderThanAsync(DateTime cutoffTime);
     }
 }

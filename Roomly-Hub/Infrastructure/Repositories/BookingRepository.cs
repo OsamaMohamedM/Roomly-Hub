@@ -151,5 +151,23 @@ namespace Infrastructure.Repositories
                             && checkOut > b.CheckInDate)
                 .ToListAsync(cancellation);
         }
+
+        public async Task<IEnumerable<Booking>> GetUnpaidBookingsOlderThanAsync(DateTime cutoffTime)
+        {
+            return await _context.Set<Booking>()
+                .Where(b => b.Status == BookingStatus.AwaitingPayment
+                            && b.CreatedDate < cutoffTime
+                            && !b.IsDeleted)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Booking>> GetPendingHostApprovalsOlderThanAsync(DateTime cutoffTime)
+        {
+            return await _context.Set<Booking>()
+                 .Where(b => b.Status == BookingStatus.PendingHostApproval
+                             && b.CreatedDate < cutoffTime
+                             && !b.IsDeleted)
+                 .ToListAsync();
+        }
     }
 }
