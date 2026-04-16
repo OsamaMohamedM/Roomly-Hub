@@ -266,6 +266,13 @@ namespace Domain.Entities.Rooms
 
         public void UpdateAverageRating(decimal newRating)
         {
+            if (newRating == 0)
+            {
+                AverageRating = null;
+                MarkUpdated();
+                return;
+            }
+
             if (newRating < 1 || newRating > 5)
                 throw new ArgumentException("Rating must be between 1 and 5.", nameof(newRating));
 

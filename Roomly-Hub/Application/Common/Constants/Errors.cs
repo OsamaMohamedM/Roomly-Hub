@@ -62,6 +62,17 @@ namespace Application.Common.Constants
                 public const string SubmissionNotFound = "SUBMISSION_NOT_FOUND";
                 public const string ForbiddenReview = "FORBIDDEN";
             }
+
+            public static class Review
+            {
+                public const string ReviewNotFound = "REVIEW_NOT_FOUND";
+                public const string BookingNotCompleted = "BOOKING_NOT_COMPLETED";
+                public const string AlreadySubmitted = "REVIEW_ALREADY_SUBMITTED";
+                public const string InvalidReviewType = "INVALID_REVIEW_TYPE";
+                public const string InvalidSubject = "INVALID_REVIEW_SUBJECT";
+                public const string SharedRoomRequired = "SHARED_ROOM_REQUIRED";
+                public const string ForbiddenReviewAction = "FORBIDDEN_REVIEW_ACTION";
+            }
         }
 
         public static class Messages
@@ -122,6 +133,26 @@ namespace Application.Common.Constants
                 public const string PaymentFailed = "Booking payment could not be processed.";
                 public const string CancellationNotAllowed = "Booking cancellation is not allowed in the current state.";
                 public const string ConcurrencyConflict = "The booking was changed by another request. Please retry.";
+            }
+
+            public static class Reviews
+            {
+                public const string BookingNotCompleted = "REVIEW_BOOKING_NOT_COMPLETED";
+                public const string AlreadySubmitted = "REVIEW_ALREADY_SUBMITTED";
+                public const string NotFound = "REVIEW_NOT_FOUND";
+                public const string NotRoommateBooking = "REVIEW_NOT_ROOMMATE_BOOKING";
+                public const string NotOwner = "REVIEW_NOT_OWNER";
+            }
+
+            public static class Review
+            {
+                public const string ReviewNotFound = "Review not found.";
+                public const string BookingNotCompleted = "Review is allowed only for completed bookings.";
+                public const string AlreadySubmitted = "Review already submitted for this booking and type.";
+                public const string InvalidReviewType = "Invalid review type.";
+                public const string InvalidSubject = "Invalid review subject.";
+                public const string SharedRoomRequired = "Roommate review is allowed only for shared rooms.";
+                public const string ForbiddenReviewAction = "You are not allowed to perform this review action.";
             }
 
             public static class Kyc

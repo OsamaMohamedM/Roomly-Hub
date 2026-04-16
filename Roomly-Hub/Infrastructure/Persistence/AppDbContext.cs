@@ -1,8 +1,8 @@
 ﻿using Domain.Entities;
 using Domain.Entities.Booking;
 using Domain.Entities.Payment;
+using Domain.Entities.Reviews;
 using Domain.Entities.Rooms;
-using Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence
@@ -46,5 +46,6 @@ namespace Infrastructure.Persistence
         public DbSet<RoomReview> RoomReviews { get; set; }
         public DbSet<AmenityType> Amenities { get; set; }
         public DbSet<PaymentWebhookLog> PaymentWebhookLogs { get; set; }
+        public DbSet<Review> Reviews { get; set; }
     }
 }

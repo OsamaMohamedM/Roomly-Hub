@@ -4,10 +4,12 @@ using Application.DTOs.Payment;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Interfaces.Services.Bookings;
+using Application.Interfaces.Services.Reviews;
 using Application.Services;
 using Application.Services.BackGroundJobs;
 using Application.Services.Bookings;
 using Application.Services.Payments;
+using Application.Services.Reviews;
 using Application.Services.RoomCRUD;
 using Application.Validators;
 using Domain.Interfaces.Repositories;
@@ -144,6 +146,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IKycSubmissionRepository, KycSubmissionRepository>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<IPaymentWebhookLogRepository, PaymentWebhookLogRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IPaymentService, FawaterakPaymentService>();
@@ -151,6 +154,7 @@ builder.Services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
 
 builder.Services.AddScoped<IRoomMapper, RoomMapper>();
 builder.Services.AddScoped<IBookingMapper, BookingMapper>();
+builder.Services.AddScoped<IReviewMapper, ReviewMapper>();
 
 builder.Services.AddScoped<IRegisterService, RegisterService>();
 builder.Services.AddScoped<ILoginService, LoginService>();
@@ -167,6 +171,8 @@ builder.Services.AddScoped<IBookingCommandService, BookingCommandService>();
 builder.Services.AddScoped<IBookingQueryService, BookingQueryService>();
 builder.Services.AddScoped<IBookingPaymentFlowService, BookingPaymentFlowService>();
 builder.Services.AddScoped<IBookingServices, BookingServices>();
+builder.Services.AddScoped<IReviewCommandService, ReviewCommandService>();
+builder.Services.AddScoped<IReviewQueryService, ReviewQueryService>();
 builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
 builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationService>();
 

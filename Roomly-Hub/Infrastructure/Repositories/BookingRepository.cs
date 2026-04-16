@@ -67,6 +67,26 @@ namespace Infrastructure.Repositories
                 .ToListAsync(cancellation);
         }
 
+        public async Task<IEnumerable<Booking>> GetOverlappingBookingsForRoomAsync(Guid roomId, DateTime checkIn, DateTime checkOut, Guid? excludeBookingId = null, CancellationToken cancellation = default)
+        {
+            var query = _context.Set<Booking>()
+                .Include(b => b.Room)
+                .Where(b => b.RoomId == roomId
+                            && !b.IsDeleted
+                            && b.Status != BookingStatus.Cancelled
+                            && checkIn < b.CheckOutDate
+                            && checkOut > b.CheckInDate);
+
+            if (excludeBookingId.HasValue)
+            {
+                query = query.Where(b => b.Id != excludeBookingId.Value);
+            }
+
+            return await query
+                .OrderByDescending(b => b.CreatedDate)
+                .ToListAsync(cancellation);
+        }
+
         public async Task AddBookingAsync(Booking booking, CancellationToken cancellation = default)
         {
             await _context.Set<Booking>().AddAsync(booking, cancellation);

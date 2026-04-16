@@ -15,6 +15,8 @@ namespace Domain.Interfaces.Repositories
 
         public Task<IEnumerable<Booking>> GetRoomBookingsForHostAsync(Guid hostId, Guid roomId, DateTime from, DateTime to, CancellationToken cancellation = default);
 
+        public Task<IEnumerable<Booking>> GetOverlappingBookingsForRoomAsync(Guid roomId, DateTime checkIn, DateTime checkOut, Guid? excludeBookingId = null, CancellationToken cancellation = default);
+
         public Task AddBookingAsync(Booking booking, CancellationToken cancellation = default);
 
         public Task UpdateBookingAsync(Booking booking, CancellationToken cancellation = default);
