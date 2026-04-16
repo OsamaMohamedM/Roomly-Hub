@@ -1,6 +1,6 @@
 # Roomly-Hub
 
-> **Roomly-Hub** is a booking platform for guest and host workflows, centered on room listings, booking requests, host approval, secure payments, KYC review, and authenticated user operations.
+> **Roomly-Hub** is a booking platform for guest and host workflows, centered on room listings, booking requests, host approval, secure payments, KYC review, user/room reviews, and authenticated user operations.
 
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)
 ![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-Web%20API-512BD4?logo=dotnet)
@@ -13,7 +13,7 @@
 
 ## 1. Executive Summary
 
-Roomly-Hub is an API-driven booking system designed  marketplace where guests search rooms, create bookings, and complete payments while hosts manage listings, approve or reject requests, and control room availability.
+Roomly-Hub is an API-driven booking system designed marketplace where guests search rooms, create bookings, complete stays, submit reviews, and complete payments while hosts manage listings, approve or reject requests, and control room availability.
 
 The platform focuses on the core operational needs of a modern booking domain:
 
@@ -22,9 +22,10 @@ The platform focuses on the core operational needs of a modern booking domain:
 - room publishing, moderation, activation, and photo management,
 - secure authentication and account recovery,
 - payment initiation, refund handling, and webhook reconciliation,
+- review lifecycle management (submission, moderation, visibility),
 - and strong auditability across all transactional workflows.
 
-Roomly-Hub is built to keep booking, payment, and state-transition logic explicit, testable, and safe under concurrent usage.
+Roomly-Hub is built to keep booking, payment, review, and state-transition logic explicit, testable, and safe under concurrent usage.
 
 ---
 
@@ -86,17 +87,31 @@ Supported payment operations include:
 - refunding paid bookings,
 - and processing gateway webhooks for payment success, failure, and cancellation.
 
+### Reviews System
+
+Roomly-Hub includes a dedicated review subsystem with command/query separation and moderation:
+
+- submit reviews for completed bookings,
+- support review types: `GuestToRoom`, `GuestToHost`, `HostToGuest`, `RoommateToGuest`,
+- enforce reviewer ownership and booking-state rules,
+- prevent duplicate review submission per booking/reviewer/type,
+- query visible room reviews and user reviews,
+- moderator review flagging,
+- moderator review removal,
+- and automatic room rating recalculation from visible `GuestToRoom` reviews.
+
 ### KYC and Moderation
 
 The application includes supporting workflows for trust and review:
 
 - KYC submission,
 - KYC review and moderation,
-- and room moderation flows.
+- room moderation flows,
+- and review moderation flows.
 
 ### Audit and Reliability
 
-The system persists webhook events and uses consistent error handling so payment and booking operations remain traceable, idempotent, and concurrency-safe.
+The system persists webhook events and uses consistent error handling so payment, booking, and review operations remain traceable, idempotent, and concurrency-safe.
 
 ---
 
@@ -111,9 +126,10 @@ The Domain layer holds the business model:
 - booking entities,
 - room entities,
 - authentication entities,
+- review entities,
 - payment-related entities,
 - value-like models and enums,
-- and invariant-bearing methods such as booking and payment state transitions.
+- and invariant-bearing methods such as booking/payment/review state transitions.
 
 This layer is kept free from framework-specific dependencies wherever possible.
 
@@ -131,7 +147,7 @@ It contains:
 - result handling,
 - and shared application constants and helpers.
 
-The application layer is where booking rules, validation, authorization checks, and payment workflow orchestration are implemented.
+The application layer is where booking rules, review rules, validation, authorization checks, and payment workflow orchestration are implemented.
 
 ### Infrastructure Layer
 
@@ -155,6 +171,7 @@ The API layer exposes HTTP endpoints through ASP.NET Core controllers:
 - room endpoints,
 - booking endpoints,
 - payment endpoints,
+- review endpoints,
 - KYC endpoints,
 - user endpoints,
 - and webhook endpoints.
@@ -170,11 +187,13 @@ Instead, the codebase separates responsibilities through dedicated services such
 - `IBookingCommandService`,
 - `IBookingQueryService`,
 - `IBookingPaymentFlowService`,
+- `IReviewCommandService`,
+- `IReviewQueryService`,
 - `IRoomService`,
 - `IAuthService`,
 - and `IPaymentWebhookService`.
 
-This gives the same practical separation benefits as CQRS while keeping the pipeline explicit and lightweight.
+This gives the same practical separation benefits as CQRS while keeping the workflow explicit and lightweight.
 
 ### Result Pattern for Error Handling
 
@@ -187,6 +206,7 @@ Typical outcomes include:
 - unauthorized action,
 - not found,
 - invalid state,
+- duplicate action,
 - and concurrency conflict.
 
 This makes controller-to-service interactions predictable and keeps HTTP mapping straightforward.
@@ -200,6 +220,7 @@ Validation is used for:
 - required inputs,
 - format checks,
 - date and state constraints,
+- rating/comment constraints,
 - and request consistency before any transactional work begins.
 
 ### Concurrency Handling
@@ -339,7 +360,36 @@ Refunds are handled separately through the payment/booking service layer and are
 
 ---
 
-## 6. Project Standards
+## 6. Reviews API
+
+### Endpoints
+
+- `POST /api/reviews` (`Authorized`)  
+  Submits review using current user id from JWT claim.
+
+- `GET /api/reviews/rooms/{roomId}` (`AllowAnonymous`)  
+  Returns visible reviews for a room.
+
+- `GET /api/reviews/users/{userId}` (`AllowAnonymous`)  
+  Returns visible reviews for a user.
+
+- `POST /api/reviews/{reviewId}/flag` (`Authorized`)  
+  Flags review (moderator/superadmin only).
+
+- `DELETE /api/reviews/{reviewId}` (`Authorized`)  
+  Removes review (moderator/superadmin only).
+
+### Business Rules Highlights
+
+- Booking must be `Completed` before review submission.
+- Ownership checks are enforced by review type.
+- `RoommateToGuest` requires `SharedRoom` and valid overlapping-roommate booking context.
+- Duplicate review submissions are blocked.
+- Only visible `GuestToRoom` reviews contribute to room average rating.
+
+---
+
+## 7. Project Standards
 
 Roomly-Hub follows a set of explicit engineering standards that shape how code is written, organized, and evolved.
 
@@ -361,7 +411,7 @@ The codebase is structured around the SOLID principles:
 
 ### DRY
 
-Common logic is centralized into reusable services, validators, helpers, and shared error/result types.
+Common logic is centralized into reusable services, validators, helpers, mappers, and shared error/result types.
 
 This reduces duplication across controllers and application workflows.
 
@@ -381,7 +431,7 @@ This keeps the workflow explicit and avoids an extra messaging layer.
 
 Expected business outcomes are represented with `Result` objects rather than exception-driven branching.
 
-This is used consistently across booking, room, auth, and payment workflows.
+This is used consistently across booking, room, auth, payment, and review workflows.
 
 ### Validation-First Design
 
@@ -393,7 +443,7 @@ FluentValidation is used throughout the application layer to prevent invalid dat
 
 Important operations are wrapped in Unit of Work execution blocks.
 
-This ensures booking updates, payment transitions, and webhook state changes remain atomic.
+This ensures booking updates, payment transitions, webhook state changes, and rating recalculation side-effects remain atomic and consistent.
 
 ### Concurrency Safety
 
@@ -405,7 +455,7 @@ This is especially important for bookings, host approvals, cancellation, and pay
 
 Serilog and `ILogger<T>` are used for operational observability.
 
-Important actions such as authentication, booking changes, payment creation, and webhook processing are logged with context.
+Important actions such as authentication, booking changes, payment creation, webhook processing, review submit/query/moderation, and rating recalculation are logged with context.
 
 ### Secure-by-Default Web and Payment Behavior
 
@@ -454,7 +504,7 @@ The current codebase uses the following implementation technologies and librarie
 
 ---
 
-## 7. Getting Started
+## 8. Getting Started
 
 ### Prerequisites
 
@@ -511,27 +561,11 @@ Ensure the following are installed locally:
 
 - register and verify a user,
 - create a room,
-- create a booking,
+- create and complete a booking,
+- submit room/user reviews,
 - initiate payment,
 - confirm the invoice is stored on the booking,
 - send webhook callbacks through ngrok,
-- and verify the booking state and webhook logs.
+- and verify booking state, review visibility, room average rating, and webhook logs.
 
 ---
-
-## Repository Structure
-
-The solution is organized into the following projects:
-
-- `Domain`
-- `Application`
-- `Infrastructure`
-- `Roomly-Hub`
-
----
-
-## Closing Note
-
-Roomly-Hub is designed as a practical, production-oriented booking platform with explicit booking state management, secure payments, and clear architectural boundaries.
-
-Its codebase emphasizes reliability, maintainability, and predictable behavior across booking, payment, authentication, and moderation workflows.
