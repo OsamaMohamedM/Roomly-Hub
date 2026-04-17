@@ -1,5 +1,6 @@
 ﻿using Domain.Entities;
 using Domain.Entities.Booking;
+using Domain.Entities.Notifications;
 using Domain.Entities.Payment;
 using Domain.Entities.Reviews;
 using Domain.Entities.Rooms;
@@ -47,5 +48,7 @@ namespace Infrastructure.Persistence
         public DbSet<AmenityType> Amenities { get; set; }
         public DbSet<PaymentWebhookLog> PaymentWebhookLogs { get; set; }
         public DbSet<Review> Reviews { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<NotificationChannelPreference> NotificationChannelPreferences { get; set; }
     }
 }

@@ -148,6 +148,7 @@ builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<IPaymentWebhookLogRepository, PaymentWebhookLogRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IPaymentService, FawaterakPaymentService>();
 builder.Services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
@@ -174,7 +175,6 @@ builder.Services.AddScoped<IBookingServices, BookingServices>();
 builder.Services.AddScoped<IReviewCommandService, ReviewCommandService>();
 builder.Services.AddScoped<IReviewQueryService, ReviewQueryService>();
 builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
-builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(options =>
