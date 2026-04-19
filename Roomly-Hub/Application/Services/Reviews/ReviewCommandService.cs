@@ -2,6 +2,7 @@ using Application.Common.Constants;
 using Application.Common.Mappers;
 using Application.Common.Results;
 using Application.DTOs.Reviews;
+using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services.Reviews;
 using Domain.Entities.Reviews;
@@ -11,6 +12,7 @@ using Domain.enums.Reviews;
 using Domain.enums.Room;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
+using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Reviews
@@ -24,6 +26,7 @@ namespace Application.Services.Reviews
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<SubmitReviewRequestDto> _submitReviewValidator;
         private readonly IReviewMapper _reviewMapper;
+        private readonly IPublisher _publisher;
         private readonly ILogger<ReviewCommandService> _logger;
 
         public ReviewCommandService(
@@ -34,6 +37,7 @@ namespace Application.Services.Reviews
             IUnitOfWork unitOfWork,
             IValidator<SubmitReviewRequestDto> submitReviewValidator,
             IReviewMapper reviewMapper,
+            IPublisher publisher,
             ILogger<ReviewCommandService> logger)
         {
             _bookingRepository = bookingRepository;
@@ -43,6 +47,7 @@ namespace Application.Services.Reviews
             _unitOfWork = unitOfWork;
             _submitReviewValidator = submitReviewValidator;
             _reviewMapper = reviewMapper;
+            _publisher = publisher;
             _logger = logger;
         }
 
@@ -133,6 +138,18 @@ namespace Application.Services.Reviews
             if (reviewType == ReviewType.GuestToRoom)
             {
                 await RecalculateRoomRatingAsync(booking.RoomId, ct);
+            }
+
+            try
+            {
+                if (subjectUserId.HasValue)
+                {
+                    await _publisher.Publish(new ReviewReceivedEvent(review.Id, booking.Id, subjectUserId.Value, reviewerId), ct);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish ReviewReceivedEvent for review {ReviewId}", review.Id);
             }
 
             var reviewer = await _userRepository.GetByIdAsync(reviewerId, ct);

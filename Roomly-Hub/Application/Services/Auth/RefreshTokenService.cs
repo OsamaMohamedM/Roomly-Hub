@@ -2,11 +2,14 @@ using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
+using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
+using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Application.Services
@@ -19,6 +22,8 @@ namespace Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<RefreshTokenRequestDto> _validator;
         private readonly JwtSettings _jwtSettings;
+        private readonly IPublisher _publisher;
+        private readonly ILogger<RefreshTokenService> _logger;
 
         public RefreshTokenService(
             IUserRepository userRepository,
@@ -26,7 +31,9 @@ namespace Application.Services
             IHasher hasher,
             IUnitOfWork unitOfWork,
             IValidator<RefreshTokenRequestDto> validator,
-            IOptions<JwtSettings> jwtSettings)
+            IOptions<JwtSettings> jwtSettings,
+            IPublisher publisher,
+            ILogger<RefreshTokenService> logger)
         {
             _userRepository = userRepository;
             _tokenService = tokenService;
@@ -34,6 +41,8 @@ namespace Application.Services
             _unitOfWork = unitOfWork;
             _validator = validator;
             _jwtSettings = jwtSettings.Value;
+            _publisher = publisher;
+            _logger = logger;
         }
 
         public async Task<Result<LoginResponseDto>> RefreshTokenAsync(RefreshTokenRequestDto requestDto, CancellationToken cancellationToken = default)
@@ -53,7 +62,18 @@ namespace Application.Services
 
             var refreshToken = user.RefreshTokens.FirstOrDefault(rt => rt.TokenHash == tokenHash);
             if (refreshToken is null || !refreshToken.IsActive())
+            {
+                try
+                {
+                    await _publisher.Publish(new SecurityAlertEvent(user.Id), cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to publish SecurityAlertEvent for user {UserId}", user.Id);
+                }
+
                 return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.InvalidRefreshToken, Errors.Messages.Auth.InvalidRefreshToken);
+            }
 
             if (!user.IsActive)
                 return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.AccountInactive, Errors.Messages.Auth.AccountInactive);

@@ -38,9 +38,30 @@ namespace Infrastructure.Repositories
             return await _context.Notifications.CountAsync(x => x.UserId == userId && x.Status == NotificationStatus.Unread && !x.IsDeleted, cancellationToken);
         }
 
-        public Task MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default)
+        public async Task MarkAllAsReadAsync(Guid userId, CancellationToken ct)
         {
-            throw new NotImplementedException();
+            await _context.Notifications
+                .Where(n => n.UserId == userId && !n.IsRead && n.Channel == NotificationChannel.InApp)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(n => n.ReadAt, DateTime.UtcNow)
+                    .SetProperty(n => n.Status, NotificationStatus.Read)
+                    .SetProperty(n => n.UpdatedAt, DateTime.UtcNow),
+                    ct);
+        }
+
+        public async Task<bool> IsEnabledAsync(Guid userId, NotificationCategory category, NotificationChannel channel, CancellationToken cancellationToken = default)
+        {
+            var preference = await _context.NotificationChannelPreferences
+                .FirstOrDefaultAsync(x => x.UserId == userId && x.Category == category && x.Channel == channel && !x.IsDeleted, cancellationToken);
+
+            return preference?.IsEnabled ?? true;
+        }
+
+        public async Task<HashSet<NotificationChannelPreference>> GetPreferencesByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            return await _context.NotificationChannelPreferences
+                .Where(x => x.UserId == userId && !x.IsDeleted)
+                .ToHashSetAsync(cancellationToken);
         }
 
         public async Task AddPreferenceAsync(NotificationChannelPreference preference, CancellationToken cancellationToken = default)

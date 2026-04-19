@@ -2,6 +2,7 @@ using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
+using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Domain.Entities;
@@ -9,6 +10,8 @@ using Domain.Enums;
 using Domain.Interfaces.Repositories;
 using Domain.ValueObjects;
 using FluentValidation;
+using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services
 {
@@ -23,6 +26,8 @@ namespace Application.Services
         private readonly IOtpService _otpService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<RegisterRequestDto> _validator;
+        private readonly IPublisher _publisher;
+        private readonly ILogger<RegisterService> _logger;
 
         public RegisterService(
             IUserRepository userRepository,
@@ -30,7 +35,9 @@ namespace Application.Services
             IHasher hasher,
             IOtpService otpService,
             IUnitOfWork unitOfWork,
-            IValidator<RegisterRequestDto> validator)
+            IValidator<RegisterRequestDto> validator,
+            IPublisher publisher,
+            ILogger<RegisterService> logger)
         {
             _userRepository = userRepository;
             _emailService = emailService;
@@ -38,6 +45,8 @@ namespace Application.Services
             _otpService = otpService;
             _unitOfWork = unitOfWork;
             _validator = validator;
+            _publisher = publisher;
+            _logger = logger;
         }
 
         public async Task<Result<RegisterResponseDto>> RegisterAsync(RegisterRequestDto requestDto, CancellationToken cancellationToken = default)
@@ -80,6 +89,16 @@ namespace Application.Services
 
             await _userRepository.AddAsync(user, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            try
+            {
+                await _publisher.Publish(new UserRegisteredEvent(user.Id), cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish UserRegisteredEvent for user {UserId}", user.Id);
+            }
+
             var otpResult = await SendEmailVerificationOtpAsync(user, cancellationToken);
             if (otpResult.IsFailure)
                 return Result<RegisterResponseDto>.Failure(otpResult.ErrorCode!, otpResult.ErrorMessage!);

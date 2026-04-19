@@ -2,15 +2,16 @@ namespace Domain.enums.Notifications
 {
     public enum NotificationType
     {
-        BookingCreated,
-        BookingApproved,
+        BookingRequested,
+        BookingConfirmed,
         BookingRejected,
         BookingCancelled,
-        BookingCompleted,
-        PaymentSucceeded,
+        PaymentConfirmation,
         PaymentFailed,
         ReviewReceived,
-        ReviewFlagged,
-        System
+        KycApproved,
+        KycRejected,
+        AccountLocked,
+        SecurityAlert
     }
 }

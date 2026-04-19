@@ -1,6 +1,6 @@
 # Roomly-Hub
 
-> **Roomly-Hub** is a booking platform for guest and host workflows, centered on room listings, booking requests, host approval, secure payments, KYC review, user/room reviews, and authenticated user operations.
+> **Roomly-Hub** is a booking platform for guest and host workflows, centered on room listings, booking requests, host approval, secure payments, KYC review, user/room reviews, notifications, and authenticated user operations.
 
 ![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet)
 ![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-Web%20API-512BD4?logo=dotnet)
@@ -99,6 +99,16 @@ Roomly-Hub includes a dedicated review subsystem with command/query separation a
 - moderator review flagging,
 - moderator review removal,
 - and automatic room rating recalculation from visible `GuestToRoom` reviews.
+
+### Notifications System
+
+Roomly-Hub includes user-focused notification delivery and preference management:
+
+- fetch unread notifications for the current authenticated user,
+- fetch unread notifications count,
+- mark all unread notifications as read,
+- update per-channel notification preferences,
+- and classify notifications by type, category, channel, and status.
 
 ### KYC and Moderation
 
@@ -360,24 +370,38 @@ Refunds are handled separately through the payment/booking service layer and are
 
 ---
 
-## 6. Reviews API
+## 6. Reviews and Notifications APIs
 
-### Endpoints
+### Reviews Endpoints
 
-- `POST /api/reviews` (`Authorized`)  
+- `POST /api/reviews` (`Authorized`)
   Submits review using current user id from JWT claim.
 
-- `GET /api/reviews/rooms/{roomId}` (`AllowAnonymous`)  
+- `GET /api/reviews/rooms/{roomId}` (`AllowAnonymous`)
   Returns visible reviews for a room.
 
-- `GET /api/reviews/users/{userId}` (`AllowAnonymous`)  
+- `GET /api/reviews/users/{userId}` (`AllowAnonymous`)
   Returns visible reviews for a user.
 
-- `POST /api/reviews/{reviewId}/flag` (`Authorized`)  
+- `POST /api/reviews/{reviewId}/flag` (`Authorized`)
   Flags review (moderator/superadmin only).
 
-- `DELETE /api/reviews/{reviewId}` (`Authorized`)  
+- `DELETE /api/reviews/{reviewId}` (`Authorized`)
   Removes review (moderator/superadmin only).
+
+### Notifications Endpoints
+
+- `GET /api/notifications/unread` (`Authorized`)
+  Returns unread notifications for the current authenticated user.
+
+- `GET /api/notifications/unread/count` (`Authorized`)
+  Returns unread notifications count for the current authenticated user.
+
+- `POST /api/notifications/read-all` (`Authorized`)
+  Marks all unread notifications as read for the current authenticated user.
+
+- `PUT /api/notifications/preferences` (`Authorized`)
+  Updates channel preferences for the current authenticated user.
 
 ### Business Rules Highlights
 

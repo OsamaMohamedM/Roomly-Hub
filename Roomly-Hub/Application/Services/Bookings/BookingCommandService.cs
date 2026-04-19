@@ -4,12 +4,14 @@ using Application.Common.Helpers;
 using Application.Common.Mappers;
 using Application.Common.Results;
 using Application.DTOs.Booking;
+using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services.Bookings;
 using Domain.Entities.Booking;
 using Domain.enums.Booking;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
+using MediatR;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Bookings
@@ -23,6 +25,7 @@ namespace Application.Services.Bookings
         private readonly IValidator<CreateBookingDto> _createBookingValidator;
         private readonly IValidator<BookingCancelRequestDto> _bookingCancelValidator;
         private readonly IBookingMapper _bookingMapper;
+        private readonly IPublisher _publisher;
         private readonly ILogger<BookingCommandService> _logger;
 
         public BookingCommandService(
@@ -33,6 +36,7 @@ namespace Application.Services.Bookings
             IValidator<CreateBookingDto> createBookingValidator,
             IValidator<BookingCancelRequestDto> bookingCancelValidator,
             IBookingMapper bookingMapper,
+            IPublisher publisher,
             ILogger<BookingCommandService> logger)
         {
             _bookingRepository = bookingRepository;
@@ -42,6 +46,7 @@ namespace Application.Services.Bookings
             _createBookingValidator = createBookingValidator;
             _bookingCancelValidator = bookingCancelValidator;
             _bookingMapper = bookingMapper;
+            _publisher = publisher;
             _logger = logger;
         }
 
@@ -80,6 +85,19 @@ namespace Application.Services.Bookings
             booking.CancelBooking(bookingCancelRequestDto.GuestId.Value);
             await _bookingRepository.UpdateBookingAsync(booking, cancellation);
             await _unitOfWork.SaveChangesAsync(cancellation);
+
+            if (booking.Room != null)
+            {
+                try
+                {
+                    await _publisher.Publish(new BookingCancelledEvent(booking.Id, booking.GuestId, booking.Room.HostId, booking.RoomId), cancellation);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to publish BookingCancelledEvent for booking {BookingId}", booking.Id);
+                }
+            }
+
             _logger.LogInformation("Booking {BookingId} cancelled successfully", bookingCancelRequestDto.BookingId);
             return Result<string>.Success("Booking cancelled successfully.");
         }
@@ -158,6 +176,15 @@ namespace Application.Services.Bookings
 
                     await _bookingRepository.AddBookingAsync(booking, token);
                     await _unitOfWork.SaveChangesAsync(token);
+
+                    try
+                    {
+                        await _publisher.Publish(new BookingRequestedEvent(booking.Id, guestId, room.HostId, room.Id), token);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to publish BookingRequestedEvent for booking {BookingId}", booking.Id);
+                    }
 
                     _logger.LogInformation("Booking {BookingId} created successfully with status {Status}", booking.Id, booking.Status);
 
@@ -317,6 +344,16 @@ namespace Application.Services.Bookings
 
                     await _bookingRepository.UpdateBookingAsync(booking, token);
                     await _unitOfWork.SaveChangesAsync(token);
+
+                    try
+                    {
+                        await _publisher.Publish(new BookingConfirmedEvent(booking.Id, booking.GuestId, hostId, booking.RoomId), token);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to publish BookingConfirmedEvent for booking {BookingId}", booking.Id);
+                    }
+
                     _logger.LogInformation("Booking {BookingId} approved by host {HostId}. Rejected {Count} competing requests", bookingId, hostId, competingRequests.Count());
                     return Result.Success();
                 }, cancellation);
@@ -350,6 +387,16 @@ namespace Application.Services.Bookings
             booking.CancelBooking(hostId);
             await _bookingRepository.UpdateBookingAsync(booking, cancellation);
             await _unitOfWork.SaveChangesAsync(cancellation);
+
+            try
+            {
+                await _publisher.Publish(new BookingRejectedEvent(booking.Id, booking.GuestId, hostId, booking.RoomId), cancellation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish BookingRejectedEvent for booking {BookingId}", booking.Id);
+            }
+
             _logger.LogInformation("Booking {BookingId} rejected by host {HostId}", bookingId, hostId);
             return Result.Success();
         }

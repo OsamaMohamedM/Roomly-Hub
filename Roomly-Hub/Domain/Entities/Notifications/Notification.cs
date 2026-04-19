@@ -1,4 +1,3 @@
-using Domain.Entities;
 using Domain.enums.Notifications;
 
 namespace Domain.Entities.Notifications
@@ -21,5 +20,33 @@ namespace Domain.Entities.Notifications
             Title = string.Empty;
             Body = string.Empty;
         }
+
+        public static Notification Create(Guid userId, NotificationType type, NotificationCategory category, NotificationChannel channel, string title, string body, string? actionUrl)
+        {
+            return new Notification
+            {
+                UserId = userId,
+                Type = type,
+                Category = category,
+                Channel = channel,
+                Title = title,
+                Body = body,
+                ActionUrl = actionUrl,
+                Status = NotificationStatus.Unread,
+                SentAt = DateTime.UtcNow
+            };
+        }
+
+        public void MarkAsRead()
+        {
+            if (Status == NotificationStatus.Read)
+                return;
+
+            Status = NotificationStatus.Read;
+            ReadAt = DateTime.UtcNow;
+            MarkUpdated();
+        }
+
+        public bool IsRead => Status == NotificationStatus.Read;
     }
 }

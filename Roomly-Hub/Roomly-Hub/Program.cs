@@ -1,13 +1,17 @@
 using Application.Common.Mappers;
 using Application.DTOs;
 using Application.DTOs.Payment;
+using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Interfaces.Services.Bookings;
 using Application.Interfaces.Services.Reviews;
+using Application.Interfaces.Strategies;
 using Application.Services;
 using Application.Services.BackGroundJobs;
 using Application.Services.Bookings;
+using Application.Services.Notifications;
+using Application.Services.Notifications.Strategies;
 using Application.Services.Payments;
 using Application.Services.Reviews;
 using Application.Services.RoomCRUD;
@@ -19,7 +23,9 @@ using Hangfire.PostgreSql;
 using Infrastructure.Persistence;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
+using Infrastructure.Services.Notifications;
 using Infrastructure.Services.Payment;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -131,6 +137,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestDtoValidator>();
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<UserRegisteredEvent>());
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
@@ -153,6 +160,10 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IPaymentService, FawaterakPaymentService>();
 builder.Services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
 
+builder.Services.AddScoped<INotificationChannelStrategy, InAppNotificationStrategy>();
+builder.Services.AddScoped<INotificationChannelStrategy, EmailNotificationStrategy>();
+builder.Services.AddScoped<INotificationChannelStrategy, PushNotificationStrategy>();
+
 builder.Services.AddScoped<IRoomMapper, RoomMapper>();
 builder.Services.AddScoped<IBookingMapper, BookingMapper>();
 builder.Services.AddScoped<IReviewMapper, ReviewMapper>();
@@ -174,7 +185,9 @@ builder.Services.AddScoped<IBookingPaymentFlowService, BookingPaymentFlowService
 builder.Services.AddScoped<IBookingServices, BookingServices>();
 builder.Services.AddScoped<IReviewCommandService, ReviewCommandService>();
 builder.Services.AddScoped<IReviewQueryService, ReviewQueryService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
+builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(options =>

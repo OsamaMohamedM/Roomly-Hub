@@ -3,12 +3,14 @@ using Application.Common.Exceptions;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs.Payment;
+using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Domain.Entities.Payment;
 using Domain.enums.Booking;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
@@ -21,6 +23,7 @@ namespace Application.Services.Payments
         private readonly IPaymentWebhookLogRepository _webhookLogRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<WebHookModel> _webhookValidator;
+        private readonly IPublisher _publisher;
         private readonly ILogger<PaymentWebhookService> _logger;
 
         public PaymentWebhookService(
@@ -29,6 +32,7 @@ namespace Application.Services.Payments
             IPaymentWebhookLogRepository webhookLogRepository,
             IUnitOfWork unitOfWork,
             IValidator<WebHookModel> webhookValidator,
+            IPublisher publisher,
             ILogger<PaymentWebhookService> logger)
         {
             _paymentService = paymentService;
@@ -36,6 +40,7 @@ namespace Application.Services.Payments
             _webhookLogRepository = webhookLogRepository;
             _unitOfWork = unitOfWork;
             _webhookValidator = webhookValidator;
+            _publisher = publisher;
             _logger = logger;
         }
 
@@ -136,6 +141,16 @@ namespace Application.Services.Payments
                     latestBooking.MarkPaymentSucceeded(webhook.PaymentMethod);
                     await _bookingRepository.UpdateBookingAsync(latestBooking, token);
                     await _unitOfWork.SaveChangesAsync(token);
+
+                    try
+                    {
+                        await _publisher.Publish(new PaymentConfirmationEvent(latestBooking.Id, latestBooking.GuestId, webhook.InvoiceId.ToString()), token);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to publish PaymentConfirmationEvent for booking {BookingId}", latestBooking.Id);
+                    }
+
                     webhookLog.MarkAsProcessed(true);
                     await _webhookLogRepository.UpdateAsync(webhookLog, cancellationToken);
                     _logger.LogInformation("Webhook processed successfully for booking {BookingId}", latestBooking.Id);
@@ -180,6 +195,16 @@ namespace Application.Services.Payments
                     latestBooking.MarkPaymentSucceeded(latestBooking.PaymentMethod);
                     await _bookingRepository.UpdateBookingAsync(latestBooking, token);
                     await _unitOfWork.SaveChangesAsync(token);
+
+                    try
+                    {
+                        await _publisher.Publish(new PaymentConfirmationEvent(latestBooking.Id, latestBooking.GuestId, invoiceReference), token);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to publish PaymentConfirmationEvent for booking {BookingId}", latestBooking.Id);
+                    }
+
                     return Result.Success();
                 }, cancellationToken);
             }
@@ -231,6 +256,15 @@ namespace Application.Services.Payments
 
             if (booking.Status == BookingStatus.AwaitingPayment)
             {
+                try
+                {
+                    await _publisher.Publish(new PaymentFailedEvent(booking.Id, booking.GuestId, webhook.InvoiceId.ToString()), cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to publish PaymentFailedEvent for booking {BookingId}", booking.Id);
+                }
+
                 webhookLog.MarkAsProcessed(true, "Booking remains AwaitingPayment");
                 await _webhookLogRepository.UpdateAsync(webhookLog, cancellationToken);
                 _logger.LogInformation("Failed webhook received for booking {BookingId}. Booking remains awaiting payment", booking.Id);

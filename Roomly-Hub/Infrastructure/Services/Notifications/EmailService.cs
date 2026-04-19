@@ -1,11 +1,11 @@
-﻿using Application.DTOs;
+using Application.DTOs;
 using Application.Interfaces.Services;
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.Extensions.Options;
 using MimeKit;
 
-namespace Infrastructure.Services
+namespace Infrastructure.Services.Notifications
 {
     public class EmailService : IEmailService
     {
@@ -30,7 +30,5 @@ namespace Infrastructure.Services
             await client.SendAsync(message, cancellationToken);
             await client.DisconnectAsync(true, cancellationToken);
         }
-
-        
     }
 }

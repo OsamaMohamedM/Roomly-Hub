@@ -13,5 +13,22 @@ namespace Domain.Entities.Notifications
         private NotificationChannelPreference()
         {
         }
+
+        public static NotificationChannelPreference Create(Guid userId, NotificationCategory category, NotificationChannel channel, bool isEnabled)
+        {
+            return new NotificationChannelPreference
+            {
+                UserId = userId,
+                Category = category,
+                Channel = channel,
+                IsEnabled = isEnabled
+            };
+        }
+
+        public void SetEnabled(bool isEnabled)
+        {
+            IsEnabled = isEnabled;
+            MarkUpdated();
+        }
     }
 }

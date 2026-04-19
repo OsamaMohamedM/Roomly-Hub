@@ -2,12 +2,15 @@ using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
+using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Domain.Entities;
 using Domain.Interfaces.Repositories;
 using Domain.ValueObjects;
 using FluentValidation;
+using MediatR;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Application.Services
@@ -20,6 +23,8 @@ namespace Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<LoginRequestDto> _validator;
         private readonly JwtSettings _jwtSettings;
+        private readonly IPublisher _publisher;
+        private readonly ILogger<LoginService> _logger;
 
         public LoginService(
             IUserRepository userRepository,
@@ -27,7 +32,9 @@ namespace Application.Services
             IHasher hasher,
             IUnitOfWork unitOfWork,
             IValidator<LoginRequestDto> validator,
-            IOptions<JwtSettings> jwtSettings)
+            IOptions<JwtSettings> jwtSettings,
+            IPublisher publisher,
+            ILogger<LoginService> logger)
         {
             _userRepository = userRepository;
             _tokenService = tokenService;
@@ -35,6 +42,8 @@ namespace Application.Services
             _unitOfWork = unitOfWork;
             _validator = validator;
             _jwtSettings = jwtSettings.Value;
+            _publisher = publisher;
+            _logger = logger;
         }
 
         public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto requestDto, CancellationToken cancellationToken = default)
@@ -66,6 +75,18 @@ namespace Application.Services
                 {
                     user.IncrementLoginFailCount();
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                    if (user.IsLocked)
+                    {
+                        try
+                        {
+                            await _publisher.Publish(new AccountLockedEvent(user.Id), cancellationToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to publish AccountLockedEvent for user {UserId}", user.Id);
+                        }
+                    }
                 }
                 return Result<LoginResponseDto>.Failure(Errors.Codes.Auth.InvalidCredentials, Errors.Messages.Auth.InvalidCredentials);
             }

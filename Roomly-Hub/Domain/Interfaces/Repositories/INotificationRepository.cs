@@ -15,10 +15,14 @@ namespace Domain.Interfaces.Repositories
 
         Task MarkAllAsReadAsync(Guid userId, CancellationToken cancellationToken = default);
 
+        Task<bool> IsEnabledAsync(Guid userId, NotificationCategory category, NotificationChannel channel, CancellationToken cancellationToken = default);
+
         Task AddPreferenceAsync(NotificationChannelPreference preference, CancellationToken cancellationToken = default);
 
         Task<NotificationChannelPreference?> GetPreferenceAsync(Guid userId, NotificationCategory category, NotificationChannel channel, CancellationToken cancellationToken = default);
 
         Task UpdatePreferenceAsync(NotificationChannelPreference preference, CancellationToken cancellationToken = default);
+
+        Task<HashSet<NotificationChannelPreference>> GetPreferencesByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     }
 }

@@ -2,12 +2,15 @@ using Application.Common.Constants;
 using Application.Common.Helpers;
 using Application.Common.Results;
 using Application.DTOs;
+using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
+using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Application.Services
 {
@@ -17,17 +20,23 @@ namespace Application.Services
         private readonly IKycSubmissionRepository _kycSubmissionRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<SubmitKycRequestDto> _submitValidator;
+        private readonly IPublisher _publisher;
+        private readonly ILogger<KycService> _logger;
 
         public KycService(
             IUserRepository userRepository,
             IKycSubmissionRepository kycSubmissionRepository,
             IUnitOfWork unitOfWork,
-            IValidator<SubmitKycRequestDto> submitValidator)
+            IValidator<SubmitKycRequestDto> submitValidator,
+            IPublisher publisher,
+            ILogger<KycService> logger)
         {
             _userRepository = userRepository;
             _kycSubmissionRepository = kycSubmissionRepository;
             _unitOfWork = unitOfWork;
             _submitValidator = submitValidator;
+            _publisher = publisher;
+            _logger = logger;
         }
 
         public async Task<Result<KycSubmissionResponseDto>> SubmitKycAsync(Guid userId, SubmitKycRequestDto requestDto, CancellationToken cancellationToken = default)
@@ -139,6 +148,22 @@ namespace Application.Services
             }
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            try
+            {
+                if (requestDto.Approved)
+                {
+                    await _publisher.Publish(new KycApprovedEvent(submission.Id, user.Id, reviewerId), cancellationToken);
+                }
+                else
+                {
+                    await _publisher.Publish(new KycRejectedEvent(submission.Id, user.Id, reviewerId), cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish KYC review event for submission {SubmissionId}", submission.Id);
+            }
 
             return Result<KycSubmissionResponseDto>.Success(Map(submission));
         }
