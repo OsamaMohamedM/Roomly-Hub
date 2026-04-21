@@ -54,6 +54,15 @@ namespace Application.Common.Constants
                 public const string ConcurrencyConflict = "CONCURRENCY_CONFLICT";
             }
 
+            public static class Wallet
+            {
+                public const string NotFound = "WALLET_NOT_FOUND";
+                public const string InsufficientFunds = "WALLET_INSUFFICIENT_FUNDS";
+                public const string InvalidAmount = "WALLET_INVALID_AMOUNT";
+                public const string AlreadyExists = "WALLET_ALREADY_EXISTS";
+                public const string WithdrawMinimum = "WALLET_WITHDRAW_BELOW_MINIMUM";
+            }
+
             public static class Kyc
             {
                 public const string AccountInactive = "ACCOUNT_INACTIVE";
@@ -162,6 +171,15 @@ namespace Application.Common.Constants
                 public const string PendingKycExists = "You already have a pending KYC submission.";
                 public const string SubmissionNotFound = "KYC submission not found.";
                 public const string ForbiddenReview = "Only admins can review KYC submissions.";
+            }
+
+            public static class Wallet
+            {
+                public const string NotFound = "Wallet not found.";
+                public const string InsufficientFunds = "Insufficient wallet balance.";
+                public const string InvalidAmount = "Invalid wallet amount.";
+                public const string AlreadyExists = "Wallet already exists for this user.";
+                public const string WithdrawMinimum = "Withdrawal amount is below minimum allowed.";
             }
         }
     }

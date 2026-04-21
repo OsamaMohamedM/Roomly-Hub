@@ -4,6 +4,7 @@ using Domain.Entities.Notifications;
 using Domain.Entities.Payment;
 using Domain.Entities.Reviews;
 using Domain.Entities.Rooms;
+using Domain.Entities.Wallet;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence
@@ -50,5 +51,7 @@ namespace Infrastructure.Persistence
         public DbSet<Review> Reviews { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<NotificationChannelPreference> NotificationChannelPreferences { get; set; }
+        public DbSet<Wallet> Wallets { get; set; }
+        public DbSet<WalletTransaction> WalletTransactions { get; set; }
     }
 }
