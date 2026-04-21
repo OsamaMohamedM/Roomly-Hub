@@ -2,6 +2,7 @@ using Application.Common.Mappers;
 using Application.DTOs;
 using Application.DTOs.Payment;
 using Application.Events.Notifications;
+using Application.Interfaces.BackgroundJobs;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Interfaces.Services.Bookings;
@@ -193,6 +194,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IWalletCommandService, WalletCommandService>();
 builder.Services.AddScoped<IWalletQueryService, WalletQueryService>();
 builder.Services.AddScoped<HostPayoutJob>();
+builder.Services.AddScoped<IBackgroundJobScheduler, HangfireBackgroundJobScheduler>();
 builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
 
 builder.Services.AddOpenApi();

@@ -5,6 +5,7 @@ using Application.DTOs;
 using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
+using Application.Interfaces.Services.Wallet;
 using Domain.Entities;
 using Domain.Enums;
 using Domain.Interfaces.Repositories;
@@ -27,6 +28,7 @@ namespace Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<RegisterRequestDto> _validator;
         private readonly IPublisher _publisher;
+        private readonly IWalletCommandService _walletCommandService;
         private readonly ILogger<RegisterService> _logger;
 
         public RegisterService(
@@ -37,6 +39,7 @@ namespace Application.Services
             IUnitOfWork unitOfWork,
             IValidator<RegisterRequestDto> validator,
             IPublisher publisher,
+            IWalletCommandService walletCommandService,
             ILogger<RegisterService> logger)
         {
             _userRepository = userRepository;
@@ -46,6 +49,7 @@ namespace Application.Services
             _unitOfWork = unitOfWork;
             _validator = validator;
             _publisher = publisher;
+            _walletCommandService = walletCommandService;
             _logger = logger;
         }
 
@@ -89,6 +93,17 @@ namespace Application.Services
 
             await _userRepository.AddAsync(user, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            try
+            {
+                var walletResult = await _walletCommandService.CreateWalletAsync(user.Id, cancellationToken);
+                if (walletResult.IsFailure)
+                    _logger.LogWarning("Wallet creation failed for user {UserId}. ErrorCode: {ErrorCode}", user.Id, walletResult.ErrorCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to create wallet for user {UserId}", user.Id);
+            }
 
             try
             {

@@ -5,9 +5,11 @@ using Application.Common.Mappers;
 using Application.Common.Results;
 using Application.DTOs.Booking;
 using Application.DTOs.Payment;
+using Application.Interfaces.BackgroundJobs;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Interfaces.Services.Bookings;
+using Application.Interfaces.Services.Wallet;
 using Domain.enums.Booking;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
@@ -17,6 +19,8 @@ namespace Application.Services.Bookings
 {
     public class BookingPaymentFlowService : IBookingPaymentFlowService
     {
+        private const int DefaultHostPayoutDelayHours = 48;
+
         private readonly IBookingRepository _bookingRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPaymentService _paymentService;
@@ -24,6 +28,8 @@ namespace Application.Services.Bookings
         private readonly IValidator<CreateBookingPaymentRequestDto> _createBookingPaymentValidator;
         private readonly IValidator<InitiatePaymentDto> _initiatePaymentValidator;
         private readonly IBookingMapper _bookingMapper;
+        private readonly IWalletCommandService _walletCommandService;
+        private readonly IBackgroundJobScheduler _jobScheduler;
         private readonly ILogger<BookingPaymentFlowService> _logger;
 
         public BookingPaymentFlowService(
@@ -34,6 +40,8 @@ namespace Application.Services.Bookings
             IValidator<CreateBookingPaymentRequestDto> createBookingPaymentValidator,
             IValidator<InitiatePaymentDto> initiatePaymentValidator,
             IBookingMapper bookingMapper,
+            IWalletCommandService walletCommandService,
+            IBackgroundJobScheduler jobScheduler,
             ILogger<BookingPaymentFlowService> logger)
         {
             _bookingRepository = bookingRepository;
@@ -43,6 +51,8 @@ namespace Application.Services.Bookings
             _createBookingPaymentValidator = createBookingPaymentValidator;
             _initiatePaymentValidator = initiatePaymentValidator;
             _bookingMapper = bookingMapper;
+            _walletCommandService = walletCommandService;
+            _jobScheduler = jobScheduler;
             _logger = logger;
         }
 
@@ -122,6 +132,16 @@ namespace Application.Services.Bookings
                         return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
                     }
 
+                    if (booking.PaymentMethod == PaymentMethod.Wallet)
+                    {
+                        var chargeResult = await _walletCommandService.ChargeForBookingAsync(booking.GuestId, booking.Id, booking.TotalPrice, token);
+                        if (chargeResult.IsFailure)
+                        {
+                            _logger.LogWarning("Wallet charge failed for booking {BookingId}. ErrorCode: {ErrorCode}", bookingId, chargeResult.ErrorCode);
+                            return Result<BookingSummaryDto>.Failure(chargeResult.ErrorCode!, chargeResult.ErrorMessage!);
+                        }
+                    }
+
                     if (booking.PaymentStatus != PaymentStatus.Paid || booking.Status != BookingStatus.Confirmed)
                     {
                         booking.MarkPaymentSucceeded(booking.PaymentMethod);
@@ -129,6 +149,10 @@ namespace Application.Services.Bookings
                         await _unitOfWork.SaveChangesAsync(token);
                         _logger.LogInformation("Booking {BookingId} marked as paid", bookingId);
                     }
+
+                    _jobScheduler.ScheduleHostPayout(booking.Id, TimeSpan.FromHours(DefaultHostPayoutDelayHours));
+
+                    _logger.LogInformation("HostPayoutJob scheduled for booking {BookingId} with delay {DelayHours}h", bookingId, DefaultHostPayoutDelayHours);
 
                     return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
                 }, cancellation);

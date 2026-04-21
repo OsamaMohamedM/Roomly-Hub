@@ -7,6 +7,7 @@ using Application.DTOs.Booking;
 using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services.Bookings;
+using Application.Interfaces.Services.Wallet;
 using Domain.Entities.Booking;
 using Domain.enums.Booking;
 using Domain.Interfaces.Repositories;
@@ -26,6 +27,7 @@ namespace Application.Services.Bookings
         private readonly IValidator<BookingCancelRequestDto> _bookingCancelValidator;
         private readonly IBookingMapper _bookingMapper;
         private readonly IPublisher _publisher;
+        private readonly IWalletCommandService _walletCommandService;
         private readonly ILogger<BookingCommandService> _logger;
 
         public BookingCommandService(
@@ -37,6 +39,7 @@ namespace Application.Services.Bookings
             IValidator<BookingCancelRequestDto> bookingCancelValidator,
             IBookingMapper bookingMapper,
             IPublisher publisher,
+            IWalletCommandService walletCommandService,
             ILogger<BookingCommandService> logger)
         {
             _bookingRepository = bookingRepository;
@@ -47,6 +50,7 @@ namespace Application.Services.Bookings
             _bookingCancelValidator = bookingCancelValidator;
             _bookingMapper = bookingMapper;
             _publisher = publisher;
+            _walletCommandService = walletCommandService;
             _logger = logger;
         }
 
@@ -85,6 +89,20 @@ namespace Application.Services.Bookings
             booking.CancelBooking(bookingCancelRequestDto.GuestId.Value);
             await _bookingRepository.UpdateBookingAsync(booking, cancellation);
             await _unitOfWork.SaveChangesAsync(cancellation);
+
+            if (booking.PaymentStatus == PaymentStatus.Paid && booking.PaymentMethod == PaymentMethod.Wallet)
+            {
+                try
+                {
+                    var refundResult = await _walletCommandService.RefundBookingAsync(booking.GuestId, booking.Id, booking.TotalPrice, cancellation);
+                    if (refundResult.IsFailure)
+                        _logger.LogWarning("Wallet refund failed for booking {BookingId}. ErrorCode: {ErrorCode}", booking.Id, refundResult.ErrorCode);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Wallet refund threw exception for booking {BookingId}", booking.Id);
+                }
+            }
 
             if (booking.Room != null)
             {

@@ -1,5 +1,3 @@
-using Domain.Entities;
-
 namespace Domain.Entities.Wallet
 {
     public class Wallet : BaseEntity
@@ -24,18 +22,33 @@ namespace Domain.Entities.Wallet
 
         public void Credit(decimal amount)
         {
+            if (amount <= 0)
+                throw new ArgumentException("Credit amount must be greater than zero.", nameof(amount));
+
             Balance += amount;
             MarkUpdated();
         }
 
         public void Debit(decimal amount)
         {
+            if (amount <= 0)
+                throw new ArgumentException("Debit amount must be greater than zero.", nameof(amount));
+
+            if (Balance < amount)
+                throw new InvalidOperationException("Insufficient wallet balance.");
+
             Balance -= amount;
             MarkUpdated();
         }
 
         public void LockInsurance(decimal amount)
         {
+            if (amount <= 0)
+                throw new ArgumentException("Lock amount must be greater than zero.", nameof(amount));
+
+            if (Balance < amount)
+                throw new InvalidOperationException("Insufficient wallet balance to lock insurance.");
+
             Balance -= amount;
             InsuranceHeldBalance += amount;
             MarkUpdated();
@@ -43,6 +56,12 @@ namespace Domain.Entities.Wallet
 
         public void ReleaseInsurance(decimal amount)
         {
+            if (amount <= 0)
+                throw new ArgumentException("Release amount must be greater than zero.", nameof(amount));
+
+            if (InsuranceHeldBalance < amount)
+                throw new InvalidOperationException("Insufficient held insurance balance to release.");
+
             InsuranceHeldBalance -= amount;
             Balance += amount;
             MarkUpdated();
@@ -50,6 +69,12 @@ namespace Domain.Entities.Wallet
 
         public void ForfeitInsurance(decimal amount)
         {
+            if (amount <= 0)
+                throw new ArgumentException("Forfeit amount must be greater than zero.", nameof(amount));
+
+            if (InsuranceHeldBalance < amount)
+                throw new InvalidOperationException("Insufficient held insurance balance to forfeit.");
+
             InsuranceHeldBalance -= amount;
             MarkUpdated();
         }
