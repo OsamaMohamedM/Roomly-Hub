@@ -13,7 +13,7 @@
 
 ## 1. Executive Summary
 
-Roomly-Hub is an API-driven booking system designed marketplace where guests search rooms, create bookings, complete stays, submit reviews, and complete payments while hosts manage listings, approve or reject requests, and control room availability.
+Roomly-Hub is an API-driven booking system designed marketplace where guests search rooms, create bookings, complete stays, submit reviews, receive notifications, and complete payments while hosts manage listings, approve or reject requests, and control room availability.
 
 The platform focuses on the core operational needs of a modern booking domain:
 
@@ -23,9 +23,10 @@ The platform focuses on the core operational needs of a modern booking domain:
 - secure authentication and account recovery,
 - payment initiation, refund handling, and webhook reconciliation,
 - review lifecycle management (submission, moderation, visibility),
+- notification lifecycle management (unread feeds, unread counts, read-all, channel preferences),
 - and strong auditability across all transactional workflows.
 
-Roomly-Hub is built to keep booking, payment, review, and state-transition logic explicit, testable, and safe under concurrent usage.
+Roomly-Hub is built to keep booking, payment, review, notification, and state-transition logic explicit, testable, and safe under concurrent usage.
 
 ---
 
@@ -102,13 +103,14 @@ Roomly-Hub includes a dedicated review subsystem with command/query separation a
 
 ### Notifications System
 
-Roomly-Hub includes user-focused notification delivery and preference management:
+Roomly-Hub includes a notifications subsystem for authenticated users:
 
-- fetch unread notifications for the current authenticated user,
-- fetch unread notifications count,
-- mark all unread notifications as read,
-- update per-channel notification preferences,
-- and classify notifications by type, category, channel, and status.
+- unread notifications feed,
+- unread notifications count,
+- mark-all-as-read endpoint,
+- notification channel preferences update endpoint,
+- notification channel preference persistence,
+- and typed notification models (type, category, channel, status).
 
 ### KYC and Moderation
 
@@ -121,7 +123,7 @@ The application includes supporting workflows for trust and review:
 
 ### Audit and Reliability
 
-The system persists webhook events and uses consistent error handling so payment, booking, and review operations remain traceable, idempotent, and concurrency-safe.
+The system persists webhook events and uses consistent error handling so payment, booking, review, and notification operations remain traceable, idempotent, and concurrency-safe.
 
 ---
 
@@ -137,6 +139,7 @@ The Domain layer holds the business model:
 - room entities,
 - authentication entities,
 - review entities,
+- notification entities,
 - payment-related entities,
 - value-like models and enums,
 - and invariant-bearing methods such as booking/payment/review state transitions.
@@ -157,7 +160,7 @@ It contains:
 - result handling,
 - and shared application constants and helpers.
 
-The application layer is where booking rules, review rules, validation, authorization checks, and payment workflow orchestration are implemented.
+The application layer is where booking rules, review rules, notification rules, validation, authorization checks, and payment workflow orchestration are implemented.
 
 ### Infrastructure Layer
 
@@ -170,6 +173,7 @@ The Infrastructure layer provides technical implementations:
 - Fawaterk gateway integration,
 - Google authentication support,
 - email delivery support,
+- notification channel strategy implementations,
 - logging integration,
 - and supporting services such as token generation and hashing.
 
@@ -182,6 +186,7 @@ The API layer exposes HTTP endpoints through ASP.NET Core controllers:
 - booking endpoints,
 - payment endpoints,
 - review endpoints,
+- notification endpoints,
 - KYC endpoints,
 - user endpoints,
 - and webhook endpoints.
@@ -190,7 +195,7 @@ Controllers remain thin and primarily translate HTTP requests into application-s
 
 ### CQRS-Style Separation
 
-Roomly-Hub uses a CQRS-style structure, but **MediatR is not used**.
+Roomly-Hub uses a CQRS-style structure, but request dispatch still favors direct service boundaries for core use cases.
 
 Instead, the codebase separates responsibilities through dedicated services such as:
 
@@ -199,11 +204,12 @@ Instead, the codebase separates responsibilities through dedicated services such
 - `IBookingPaymentFlowService`,
 - `IReviewCommandService`,
 - `IReviewQueryService`,
+- `INotificationService`,
 - `IRoomService`,
 - `IAuthService`,
 - and `IPaymentWebhookService`.
 
-This gives the same practical separation benefits as CQRS while keeping the workflow explicit and lightweight.
+This gives practical separation benefits while keeping workflows explicit and testable.
 
 ### Result Pattern for Error Handling
 
@@ -231,6 +237,7 @@ Validation is used for:
 - format checks,
 - date and state constraints,
 - rating/comment constraints,
+- notification preference constraints,
 - and request consistency before any transactional work begins.
 
 ### Concurrency Handling
@@ -281,6 +288,7 @@ This supports:
 - **Newtonsoft.Json**
 - **Serilog**
 - **Swashbuckle / OpenAPI**
+- **MediatR**
 
 ### Database
 
@@ -312,7 +320,7 @@ This supports:
 
 ## 5. Webhook & Payment Lifecycle
 
-Roomly-Hub uses a secure payment flow centered on invoice generation and webhook reconciliation.
+Roomly-Hub uses a secure payment flow centered on invoice creation and webhook reconciliation.
 
 ### 1. Invoice Creation
 

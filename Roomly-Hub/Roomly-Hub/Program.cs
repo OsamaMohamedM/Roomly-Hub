@@ -10,6 +10,7 @@ using Application.Interfaces.Services.Reviews;
 using Application.Interfaces.Services.Wallet;
 using Application.Interfaces.Strategies;
 using Application.Services;
+using Application.Services.Auctions;
 using Application.Services.BackGroundJobs;
 using Application.Services.Bookings;
 using Application.Services.Notifications;
@@ -27,9 +28,10 @@ using Infrastructure.Jobs;
 using Infrastructure.Persistence;
 using Infrastructure.Repositories;
 using Infrastructure.Services;
+using Infrastructure.Services.Auctions;
+using Infrastructure.Services.Auctions.Hubs;
 using Infrastructure.Services.Notifications;
 using Infrastructure.Services.Payment;
-using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -142,12 +144,14 @@ builder.Services.AddAuthentication(options =>
 });
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestDtoValidator>();
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<UserRegisteredEvent>());
+builder.Services.AddSignalR();
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
 builder.Services.Configure<GoogleSettings>(builder.Configuration.GetSection(GoogleSettings.SectionName));
 builder.Services.Configure<FawaterakOptions>(builder.Configuration.GetSection("Fawaterak"));
 
+builder.Services.AddScoped<IAuctionHubService, AuctionHubService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IHasher, BCryptHasher>();
 builder.Services.AddScoped<IOtpService, OtpService>();
@@ -157,6 +161,7 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IKycSubmissionRepository, KycSubmissionRepository>();
 builder.Services.AddScoped<IRoomRepository, RoomRepository>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IAuctionRepository, AuctionRepository>();
 builder.Services.AddScoped<IReviewRepository, ReviewRepository>();
 builder.Services.AddScoped<IPaymentWebhookLogRepository, PaymentWebhookLogRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
@@ -193,7 +198,12 @@ builder.Services.AddScoped<IReviewQueryService, ReviewQueryService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IWalletCommandService, WalletCommandService>();
 builder.Services.AddScoped<IWalletQueryService, WalletQueryService>();
+builder.Services.AddScoped<IAuctionCommandService, AuctionCommandService>();
+builder.Services.AddScoped<IAuctionQueryService, AuctionQueryService>();
 builder.Services.AddScoped<HostPayoutJob>();
+builder.Services.AddScoped<AuctionSettlementJob>();
+builder.Services.AddScoped<AuctionPaymentTimeoutJob>();
+builder.Services.AddScoped<AuctionEndingSoonJob>();
 builder.Services.AddScoped<IBackgroundJobScheduler, HangfireBackgroundJobScheduler>();
 builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
 
@@ -234,6 +244,7 @@ app.UseAuthentication();
 app.UseHangfireDashboard("/hangfire");
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<AuctionHub>("/hubs/auction");
 
 RecurringJob.AddOrUpdate<IBookingTimeoutService>(
     "booking-timeout-unpaid-hourly",

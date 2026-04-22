@@ -1,4 +1,5 @@
 ﻿using Domain.Entities;
+using Domain.Entities.Auctions;
 using Domain.Entities.Booking;
 using Domain.Entities.Notifications;
 using Domain.Entities.Payment;
@@ -53,5 +54,7 @@ namespace Infrastructure.Persistence
         public DbSet<NotificationChannelPreference> NotificationChannelPreferences { get; set; }
         public DbSet<Wallet> Wallets { get; set; }
         public DbSet<WalletTransaction> WalletTransactions { get; set; }
+        public DbSet<Auction> Auctions { get; set; }
+        public DbSet<AuctionBid> AuctionBids { get; set; }
     }
 }

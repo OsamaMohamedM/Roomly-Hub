@@ -82,6 +82,23 @@ namespace Application.Common.Constants
                 public const string SharedRoomRequired = "SHARED_ROOM_REQUIRED";
                 public const string ForbiddenReviewAction = "FORBIDDEN_REVIEW_ACTION";
             }
+
+            public static class Auction
+            {
+                public const string NotFound = "AUCTION_NOT_FOUND";
+                public const string NotActive = "AUCTION_NOT_ACTIVE";
+                public const string NotPendingPayment = "AUCTION_NOT_PENDING_PAYMENT";
+                public const string BidTooLow = "AUCTION_BID_TOO_LOW";
+                public const string CannotBidOwnAuction = "AUCTION_CANNOT_BID_OWN";
+                public const string MaxAuctionsReached = "AUCTION_MAX_REACHED";
+                public const string RoomNotActive = "AUCTION_ROOM_NOT_ACTIVE";
+                public const string DuplicateAuction = "AUCTION_DUPLICATE_ROOM";
+                public const string EndTimeTooLate = "AUCTION_ENDTIME_TOO_LATE";
+                public const string PaymentExpired = "AUCTION_PAYMENT_EXPIRED";
+                public const string NotWinner = "AUCTION_NOT_WINNER";
+                public const string InsufficientFundsForInsurance = "AUCTION_INSUFFICIENT_FUNDS_INSURANCE";
+                public const string CannotCancel = "AUCTION_CANNOT_CANCEL";
+            }
         }
 
         public static class Messages
