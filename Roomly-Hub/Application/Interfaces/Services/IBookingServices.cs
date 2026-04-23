@@ -1,4 +1,4 @@
-﻿using Application.Common.Results;
+using Application.Common.Results;
 using Application.DTOs.Booking;
 using Application.DTOs.Payment;
 
@@ -35,5 +35,7 @@ namespace Application.Interfaces.Services
         public Task<Result<BookingPaymentLinkResponseDto>> InitiatePaymentAsync(Guid guestId, Guid bookingId, InitiatePaymentDto initiatePaymentDto, CancellationToken cancellation = default);
 
         public Task<Result<IEnumerable<HostBookingRequestDto>>> GetHostRoomBookingsAsync(Guid hostId, Guid roomId, DateTime from, DateTime to, CancellationToken cancellation = default);
+
+        public Task<Result> CreateFromAuctionAsync(Domain.Entities.Auctions.Auction auction, Guid winnerId, CancellationToken cancellation = default);
     }
 }

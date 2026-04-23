@@ -204,7 +204,7 @@ builder.Services.AddScoped<HostPayoutJob>();
 builder.Services.AddScoped<AuctionSettlementJob>();
 builder.Services.AddScoped<AuctionPaymentTimeoutJob>();
 builder.Services.AddScoped<AuctionEndingSoonJob>();
-builder.Services.AddScoped<IBackgroundJobScheduler, HangfireBackgroundJobScheduler>();
+builder.Services.AddScoped<IBackgroundJob, HangfireBackgroundJobScheduler>();
 builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
 
 builder.Services.AddOpenApi();

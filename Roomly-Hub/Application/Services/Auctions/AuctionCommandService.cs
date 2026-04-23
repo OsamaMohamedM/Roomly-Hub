@@ -1,54 +1,51 @@
-using Application.Common.Constants;
 using Application.Common.Results;
 using Application.DTOs.Auctions;
 using Application.Interfaces.Services;
-using Microsoft.Extensions.Logging;
+using Application.Services.Auctions.Handlers;
 
 namespace Application.Services.Auctions
 {
     public class AuctionCommandService : IAuctionCommandService
     {
-        private readonly ILogger<AuctionCommandService> _logger;
+        private readonly CreateAuctionHandler _createHandler;
+        private readonly PlaceBidHandler _placeBidHandler;
+        private readonly CancelAuctionHandler _cancelHandler;
+        private readonly SettleAuctionHandler _settleHandler;
+        private readonly HandlePaymentTimeoutHandler _paymentTimeoutHandler;
+        private readonly ProcessWinnerPaymentHandler _processPaymentHandler;
 
-        public AuctionCommandService(ILogger<AuctionCommandService> logger)
+        public AuctionCommandService(
+            CreateAuctionHandler createHandler,
+            PlaceBidHandler placeBidHandler,
+            CancelAuctionHandler cancelHandler,
+            SettleAuctionHandler settleHandler,
+            HandlePaymentTimeoutHandler paymentTimeoutHandler,
+            ProcessWinnerPaymentHandler processPaymentHandler)
         {
-            _logger = logger;
+            _createHandler = createHandler;
+            _placeBidHandler = placeBidHandler;
+            _cancelHandler = cancelHandler;
+            _settleHandler = settleHandler;
+            _paymentTimeoutHandler = paymentTimeoutHandler;
+            _processPaymentHandler = processPaymentHandler;
         }
 
         public Task<Result<AuctionResponseDto>> CreateAuctionAsync(Guid hostId, CreateAuctionRequestDto dto, CancellationToken ct)
-        {
-            _logger.LogWarning("CreateAuctionAsync invoked before Task A-09 implementation.");
-            return Task.FromResult(Result<AuctionResponseDto>.Failure(Errors.Codes.Common.RequestFailed, "Auction command service is not implemented yet."));
-        }
+            => _createHandler.HandleAsync(hostId, dto, ct);
 
         public Task<Result<PlaceBidResultDto>> PlaceBidAsync(Guid bidderId, PlaceBidRequestDto dto, CancellationToken ct)
-        {
-            _logger.LogWarning("PlaceBidAsync invoked before Task A-09 implementation.");
-            return Task.FromResult(Result<PlaceBidResultDto>.Failure(Errors.Codes.Common.RequestFailed, "Auction command service is not implemented yet."));
-        }
+            => _placeBidHandler.HandleAsync(bidderId, dto, ct);
 
         public Task<Result> CancelAuctionAsync(Guid hostId, Guid auctionId, CancellationToken ct)
-        {
-            _logger.LogWarning("CancelAuctionAsync invoked before Task A-09 implementation.");
-            return Task.FromResult(Result.Failure(Errors.Codes.Common.RequestFailed, "Auction command service is not implemented yet."));
-        }
+            => _cancelHandler.HandleAsync(hostId, auctionId, ct);
 
         public Task<Result> SettleAuctionAsync(Guid auctionId, CancellationToken ct)
-        {
-            _logger.LogWarning("SettleAuctionAsync invoked before Task A-09 implementation.");
-            return Task.FromResult(Result.Failure(Errors.Codes.Common.RequestFailed, "Auction command service is not implemented yet."));
-        }
+            => _settleHandler.HandleAsync(auctionId, ct);
 
         public Task<Result> HandlePaymentTimeoutAsync(Guid auctionId, CancellationToken ct)
-        {
-            _logger.LogWarning("HandlePaymentTimeoutAsync invoked before Task A-09 implementation.");
-            return Task.FromResult(Result.Failure(Errors.Codes.Common.RequestFailed, "Auction command service is not implemented yet."));
-        }
+            => _paymentTimeoutHandler.HandleAsync(auctionId, ct);
 
         public Task<Result> ProcessWinnerPaymentAsync(Guid winnerId, AuctionPaymentRequestDto dto, CancellationToken ct)
-        {
-            _logger.LogWarning("ProcessWinnerPaymentAsync invoked before Task A-09 implementation.");
-            return Task.FromResult(Result.Failure(Errors.Codes.Common.RequestFailed, "Auction command service is not implemented yet."));
-        }
+            => _processPaymentHandler.HandleAsync(winnerId, dto, ct);
     }
 }

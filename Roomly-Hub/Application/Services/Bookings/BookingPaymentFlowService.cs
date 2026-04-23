@@ -29,7 +29,7 @@ namespace Application.Services.Bookings
         private readonly IValidator<InitiatePaymentDto> _initiatePaymentValidator;
         private readonly IBookingMapper _bookingMapper;
         private readonly IWalletCommandService _walletCommandService;
-        private readonly IBackgroundJobScheduler _jobScheduler;
+        private readonly IBackgroundJob _jobScheduler;
         private readonly ILogger<BookingPaymentFlowService> _logger;
 
         public BookingPaymentFlowService(
@@ -41,7 +41,7 @@ namespace Application.Services.Bookings
             IValidator<InitiatePaymentDto> initiatePaymentValidator,
             IBookingMapper bookingMapper,
             IWalletCommandService walletCommandService,
-            IBackgroundJobScheduler jobScheduler,
+            IBackgroundJob jobScheduler,
             ILogger<BookingPaymentFlowService> logger)
         {
             _bookingRepository = bookingRepository;

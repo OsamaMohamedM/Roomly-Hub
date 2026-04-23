@@ -9,6 +9,8 @@ namespace Application.Interfaces.Services.Wallet
 
         Task<Result> ChargeForBookingAsync(Guid userId, Guid bookingId, decimal amount, CancellationToken ct);
 
+        Task<Result> ChargeForAuctionAsync(Guid userId, Guid auctionId, decimal amount, CancellationToken ct);
+
         Task<Result> RefundBookingAsync(Guid userId, Guid bookingId, decimal amount, CancellationToken ct);
 
         Task<Result> LockAuctionInsuranceAsync(Guid userId, Guid auctionId, decimal amount, CancellationToken ct);

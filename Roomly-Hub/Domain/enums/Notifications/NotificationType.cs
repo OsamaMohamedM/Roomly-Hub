@@ -13,6 +13,12 @@ namespace Domain.enums.Notifications
         KycRejected,
         AccountLocked,
         SecurityAlert,
-        AuctionEndingSoon
+        AuctionEndingSoon,
+        AuctionWon,
+        AuctionCancelled,
+        AuctionPaymentRequired,
+        AuctionFullyDefaulted,
+        AuctionOutbid,
+        AuctionPaymentConfirmation
     }
 }

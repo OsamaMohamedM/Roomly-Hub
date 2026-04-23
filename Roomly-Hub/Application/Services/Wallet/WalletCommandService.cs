@@ -165,6 +165,49 @@ namespace Application.Services.Wallet
             return Result.Success();
         }
 
+        public async Task<Result> ChargeForAuctionAsync(Guid userId, Guid auctionId, decimal amount, CancellationToken ct)
+        {
+            _logger.LogInformation("Charging wallet for auction. UserId: {UserId}, AuctionId: {AuctionId}, Amount: {Amount}", userId, auctionId, amount);
+            if (amount <= 0)
+                return Result.Failure(Errors.Codes.Wallet.InvalidAmount, Errors.Messages.Wallet.InvalidAmount);
+
+            var idempotencyKey = $"auction-charge-{auctionId}-{userId}";
+            if (await _walletRepository.TransactionExistsAsync(idempotencyKey, ct))
+            {
+                _logger.LogInformation("Charge for auction idempotent hit. AuctionId: {AuctionId}", auctionId);
+                return Result.Success();
+            }
+
+            var wallet = await _walletRepository.GetByUserIdAsync(userId, ct);
+            if (wallet == null)
+                return Result.Failure(Errors.Codes.Wallet.NotFound, Errors.Messages.Wallet.NotFound);
+
+            if (!wallet.CanWithdraw(amount))
+                return Result.Failure(Errors.Codes.Wallet.InsufficientFunds, Errors.Messages.Wallet.InsufficientFunds);
+
+            await _unitOfWork.ExecuteInTransactionAsync(async token =>
+            {
+                wallet.Debit(amount);
+                _walletRepository.Update(wallet);
+
+                var tx = WalletTransaction.Create(
+                    wallet.Id,
+                    -amount,
+                    TransactionType.BookingPayment,   // reuse BookingPayment type; a dedicated AuctionPayment type can be added later
+                    "Auction winner payment",
+                    idempotencyKey,
+                    ReferenceType.Auction,
+                    auctionId,
+                    PaymentMethod.Wallet);
+
+                await _walletRepository.AddTransactionAsync(tx, token);
+                await _unitOfWork.SaveChangesAsync(token);
+            }, ct);
+
+            _logger.LogInformation("Charge for auction completed. UserId: {UserId}, AuctionId: {AuctionId}, Amount: {Amount}", userId, auctionId, amount);
+            return Result.Success();
+        }
+
         public async Task<Result> RefundBookingAsync(Guid userId, Guid bookingId, decimal amount, CancellationToken ct)
         {
             _logger.LogInformation("Refunding wallet for booking. UserId: {UserId}, BookingId: {BookingId}, Amount: {Amount}", userId, bookingId, amount);

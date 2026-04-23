@@ -10,12 +10,12 @@ namespace Application.DTOs.Auctions
         public DateOnly CheckOutDate { get; set; }
         public decimal StartingPrice { get; set; }
         public decimal? CurrentHighestBid { get; set; }
-        public decimal MinNextBid { get; set; }
         public decimal InsuranceDepositAmount { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
-        public string Status { get; set; }
         public int BidCount { get; set; }
+        public decimal MinNextBid { get; set; }
+        public string? Status { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }
