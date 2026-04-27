@@ -8,6 +8,7 @@ using Domain.enums.Auction;
 using Domain.enums.Notifications;
 using Domain.Interfaces.Repositories;
 using Microsoft.Extensions.Logging;
+using System.Data;
 
 namespace Application.Services.Auctions.Handlers
 {
@@ -40,24 +41,27 @@ namespace Application.Services.Auctions.Handlers
         {
             _logger.LogInformation("SettleAuction started — AuctionId: {AuctionId}", auctionId);
 
-            var auction = await _auctionRepository.GetByIdWithBidsAsync(auctionId, ct);
-            if (auction == null)
+            return await _unitOfWork.ExecuteInTransactionAsync(async token =>
             {
-                _logger.LogWarning("SettleAuction — Auction {AuctionId} not found. Skipping.", auctionId);
-                return Result.Success();
-            }
+                var auction = await _auctionRepository.GetByIdWithBidsAsync(auctionId, token);
+                if (auction == null)
+                {
+                    _logger.LogWarning("SettleAuction — Auction {AuctionId} not found. Skipping.", auctionId);
+                    return Result.Success();
+                }
 
-            if (auction.Status != AuctionStatus.Active)
-            {
-                _logger.LogWarning("SettleAuction — Auction {AuctionId} already in status {Status}. Skipping.", auctionId, auction.Status);
-                return Result.Success();
-            }
+                if (auction.Status != AuctionStatus.Active)
+                {
+                    _logger.LogWarning("SettleAuction — Auction {AuctionId} already in status {Status}. Skipping.", auctionId, auction.Status);
+                    return Result.Success();
+                }
 
-            var winningBid = auction.Bids.FirstOrDefault(b => b.IsWinning);
-            if (winningBid == null)
-                return await ExpireWithNoBidsAsync(auction, ct);
+                var winningBid = auction.Bids.FirstOrDefault(b => b.IsWinning);
+                if (winningBid == null)
+                    return await ExpireWithNoBidsAsync(auction, token);
 
-            return await SetPendingPaymentAsync(auction, winningBid, ct);
+                return await SetPendingPaymentAsync(auction, winningBid, token);
+            }, ct, IsolationLevel.Serializable);
         }
 
         private async Task<Result> ExpireWithNoBidsAsync(Auction auction, CancellationToken ct)

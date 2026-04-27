@@ -13,6 +13,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using System.Data;
 
 namespace Application.Services.Payments
 {
@@ -49,6 +50,13 @@ namespace Application.Services.Payments
             if (webhook == null)
             {
                 return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
+            }
+
+            var isDuplicate = await _webhookLogRepository.IsDuplicateAsync(webhook.InvoiceId, webhook.HashKey, null, WebhookType.Success, cancellationToken);
+            if (isDuplicate)
+            {
+                _logger.LogInformation("Duplicate success webhook ignored for invoice {InvoiceId}", webhook.InvoiceId);
+                return Result.Success();
             }
 
             var webhookLog = new PaymentWebhookLog
@@ -155,7 +163,7 @@ namespace Application.Services.Payments
                     await _webhookLogRepository.UpdateAsync(webhookLog, cancellationToken);
                     _logger.LogInformation("Webhook processed successfully for booking {BookingId}", latestBooking.Id);
                     return Result.Success();
-                }, cancellationToken);
+                }, cancellationToken, IsolationLevel.ReadCommitted);
             }
             catch (ConcurrencyException ex)
             {
@@ -206,7 +214,7 @@ namespace Application.Services.Payments
                     }
 
                     return Result.Success();
-                }, cancellationToken);
+                }, cancellationToken, IsolationLevel.ReadCommitted);
             }
             catch (ConcurrencyException)
             {
@@ -219,6 +227,13 @@ namespace Application.Services.Payments
             if (webhook == null)
             {
                 return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
+            }
+
+            var isDuplicate = await _webhookLogRepository.IsDuplicateAsync(webhook.InvoiceId, webhook.InvoiceKey, null, WebhookType.Failed, cancellationToken);
+            if (isDuplicate)
+            {
+                _logger.LogInformation("Duplicate failed webhook ignored for invoice {InvoiceId}", webhook.InvoiceId);
+                return Result.Success();
             }
 
             var webhookLog = new PaymentWebhookLog
@@ -278,6 +293,13 @@ namespace Application.Services.Payments
             if (cancelTransaction == null)
             {
                 return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestBodyRequired);
+            }
+
+            var isDuplicate = await _webhookLogRepository.IsDuplicateAsync(null, cancelTransaction.HashKey, cancelTransaction.ReferenceId, WebhookType.Cancelled, cancellationToken);
+            if (isDuplicate)
+            {
+                _logger.LogInformation("Duplicate cancellation webhook ignored for reference {ReferenceId}", cancelTransaction.ReferenceId);
+                return Result.Success();
             }
 
             var webhookLog = new PaymentWebhookLog
@@ -355,7 +377,7 @@ namespace Application.Services.Payments
                     await _webhookLogRepository.UpdateAsync(webhookLog, cancellationToken);
                     _logger.LogInformation("Cancellation webhook processed successfully for booking {BookingId}", latestBooking.Id);
                     return Result.Success();
-                }, cancellationToken);
+                }, cancellationToken, IsolationLevel.ReadCommitted);
             }
             catch (ConcurrencyException ex)
             {

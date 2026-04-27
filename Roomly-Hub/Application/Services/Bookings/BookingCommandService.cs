@@ -429,5 +429,60 @@ namespace Application.Services.Bookings
                 a.BlockedDate >= checkInDate &&
                 a.BlockedDate < checkOutDate);
         }
+
+        public async Task<Result> CreateFromAuctionAsync(Domain.Entities.Auctions.Auction auction, Guid winnerId, CancellationToken cancellation = default)
+        {
+            _logger.LogInformation("Creating booking from auction {AuctionId} for winner {WinnerId}", auction.Id, winnerId);
+
+            var checkInDateTime = auction.CheckInDate.ToDateTime(TimeOnly.MinValue);
+            var checkOutDateTime = auction.CheckOutDate.ToDateTime(TimeOnly.MinValue);
+
+            var existingBooking = await _bookingRepository.GetBookingsByGuestIdAsync(winnerId, cancellation)
+                .ContinueWith(t => t.Result.FirstOrDefault(b =>
+                    b.RoomId == auction.RoomId &&
+                    b.CheckInDate == checkInDateTime &&
+                    b.CheckOutDate == checkOutDateTime), cancellation);
+
+            if (existingBooking != null)
+            {
+                _logger.LogWarning("Booking already exists for Winner {WinnerId}, Auction {AuctionId}, Room {RoomId}", winnerId, auction.Id, auction.RoomId);
+                return Result.Success();
+            }
+
+            var winnerBid = auction.Bids.FirstOrDefault(b => b.BidderId == winnerId && b.IsWinning);
+            if (winnerBid == null)
+            {
+                _logger.LogError("Winner bid not found for auction {AuctionId}, WinnerId {WinnerId}", auction.Id, winnerId);
+                return Result.Failure(Errors.Codes.Auction.NotWinner, "Winner bid not found");
+            }
+
+            var booking = Booking.CreateBooking(
+                guestId: winnerId,
+                roomId: auction.RoomId,
+                checkInDate: checkInDateTime,
+                checkOutDate: checkOutDateTime,
+                totalPrice: winnerBid.Amount,
+                paymentMethod: PaymentMethod.Wallet,
+                paymentStatus: PaymentStatus.Paid,
+                bookingMode: BookingMode.InstantBook,
+                sourceStatus: SourceStatus.Auction,
+                cancellationPolicy: CancellationPolicy.FreeCancellation);
+
+            booking.MarkAsPaid();
+
+            await _bookingRepository.AddBookingAsync(booking, cancellation);
+
+            try
+            {
+                await _publisher.Publish(new BookingRequestedEvent(booking.Id, winnerId, auction.HostId, auction.RoomId), cancellation);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish BookingRequestedEvent for auction booking {BookingId}", booking.Id);
+            }
+
+            _logger.LogInformation("Booking {BookingId} created from auction {AuctionId} for winner {WinnerId}", booking.Id, auction.Id, winnerId);
+            return Result.Success();
+        }
     }
 }

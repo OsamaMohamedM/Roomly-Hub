@@ -5,6 +5,8 @@ namespace Domain.Interfaces.Repositories
 {
     public interface IPaymentWebhookLogRepository
     {
+        Task<bool> IsDuplicateAsync(long? invoiceId, string? hashKey, string? referenceId, WebhookType webhookType, CancellationToken cancellationToken = default);
+
         Task AddAsync(PaymentWebhookLog log, CancellationToken cancellationToken = default);
 
         Task UpdateAsync(PaymentWebhookLog log, CancellationToken cancellationToken = default);

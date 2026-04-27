@@ -15,6 +15,29 @@ namespace Infrastructure.Repositories
             _context = context;
         }
 
+        public async Task<bool> IsDuplicateAsync(long? invoiceId, string? hashKey, string? referenceId, WebhookType webhookType, CancellationToken cancellationToken = default)
+        {
+            var query = _context.Set<PaymentWebhookLog>()
+                .Where(w => w.WebhookType == webhookType && w.IsProcessed && !w.IsDeleted);
+
+            if (invoiceId.HasValue)
+            {
+                query = query.Where(w => w.InvoiceId == invoiceId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(hashKey))
+            {
+                query = query.Where(w => w.HashKey == hashKey);
+            }
+
+            if (!string.IsNullOrWhiteSpace(referenceId))
+            {
+                query = query.Where(w => w.ReferenceId == referenceId);
+            }
+
+            return await query.AnyAsync(cancellationToken);
+        }
+
         public async Task AddAsync(PaymentWebhookLog log, CancellationToken cancellationToken = default)
         {
             await _context.Set<PaymentWebhookLog>().AddAsync(log, cancellationToken);

@@ -54,90 +54,113 @@ namespace Application.Services.Auctions.Handlers
             _logger.LogInformation("PlaceBid started — BidderId: {BidderId}, AuctionId: {AuctionId}, Amount: {Amount}",
                 bidderId, dto.AuctionId, dto.Amount);
 
-            var guardResult = await ValidateGuardsAsync(bidderId, dto, ct);
-            if (guardResult.IsFailure)
-                return Result<PlaceBidResultDto>.Failure(guardResult.ErrorCode!, guardResult.ErrorMessage!);
-            var auction = guardResult.Value!;
-
-            var minNextBid = auction.GetMinNextBid();
-            if (dto.Amount < minNextBid)
-                return Result<PlaceBidResultDto>.Failure(
-                    Errors.Codes.Auction.BidTooLow, $"Bid must be at least {minNextBid:F2}.");
-
-            var walletBalance = await _walletRepository.GetBalanceAsync(bidderId, ct);
-            if (walletBalance < auction.InsuranceDepositAmount)
+            var validationResult = await _validator.ValidateAsync(dto, ct);
+            if (!validationResult.IsValid)
             {
-                return Result<PlaceBidResultDto>.Success(new PlaceBidResultDto
-                {
-                    InsufficientFunds = true,
-                    RequiredAmount = auction.InsuranceDepositAmount
-                });
+                return Result<PlaceBidResultDto>.Failure(
+                    Errors.Codes.Common.ValidationError,
+                    Errors.Messages.Common.RequestValidationFailed);
             }
 
-            var prevWinningBid = auction.Bids.FirstOrDefault(b => b.IsWinning);
-            prevWinningBid?.MarkOutbid();
-
-            var newBid = AuctionBid.Create(dto.AuctionId, bidderId, dto.Amount);
-            newBid.MarkInsuranceLocked();
-
-            bool sniped = IsAntiSnipingTriggered(auction);
-
-            await _walletCommandService.LockAuctionInsuranceAsync(bidderId, dto.AuctionId, auction.InsuranceDepositAmount, ct);
-
-            if (prevWinningBid != null)
-                await _walletCommandService.ReleaseAuctionInsuranceAsync(
-                    prevWinningBid.BidderId, dto.AuctionId, auction.InsuranceDepositAmount, ct);
-
-            auction.UpdateHighestBid(dto.Amount, bidderId);
-
-            if (sniped)
-                auction.ExtendEndTime(AuctionConstants.AntiSnipingExtensionSeconds);
-
-            auction.Bids.Add(newBid);
-            await _unitOfWork.SaveChangesAsync(ct);
-
-            await BroadcastAsync(auction, dto, newBid, prevWinningBid, sniped, ct);
-
-            _logger.LogInformation("Bid placed — AuctionId: {AuctionId}, BidderId: {BidderId}, Amount: {Amount}",
-                dto.AuctionId, bidderId, dto.Amount);
-
-            return Result<PlaceBidResultDto>.Success(new PlaceBidResultDto
+            return await _unitOfWork.ExecuteInTransactionAsync(async token =>
             {
-                Bid = newBid.ToBidDto(),
-                InsufficientFunds = false
-            });
+                var auction = await _auctionRepository.GetByIdWithBidsAsync(dto.AuctionId, token);
+                if (auction == null)
+                {
+                    return Result<PlaceBidResultDto>.Failure(Errors.Codes.Auction.NotFound, "Auction not found.");
+                }
+
+                if (!auction.CanBid())
+                {
+                    return Result<PlaceBidResultDto>.Failure(Errors.Codes.Auction.NotActive, "Auction is not accepting bids.");
+                }
+
+                if (bidderId == auction.HostId)
+                {
+                    return Result<PlaceBidResultDto>.Failure(Errors.Codes.Auction.CannotBidOwnAuction, "Host cannot bid on their own auction.");
+                }
+
+                var bidder = await _userRepository.GetByIdAsync(bidderId);
+                if (bidder == null)
+                {
+                    return Result<PlaceBidResultDto>.Failure(Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
+                }
+
+                if (bidder.KycStatus != SubmissionStatus.Approved)
+                {
+                    return Result<PlaceBidResultDto>.Failure(Errors.Codes.Common.UnauthorizedAction, "Bidder has not completed KYC verification.");
+                }
+
+                var minNextBid = auction.GetMinNextBid();
+                if (dto.Amount < minNextBid)
+                {
+                    return Result<PlaceBidResultDto>.Failure(Errors.Codes.Auction.BidTooLow, $"Bid must be at least {minNextBid:F2}.");
+                }
+
+                var walletBalance = await _walletRepository.GetBalanceAsync(bidderId, token);
+                if (walletBalance < auction.InsuranceDepositAmount)
+                {
+                    return Result<PlaceBidResultDto>.Success(new PlaceBidResultDto
+                    {
+                        InsufficientFunds = true,
+                        RequiredAmount = auction.InsuranceDepositAmount
+                    });
+                }
+
+                var prevWinningBid = auction.Bids.FirstOrDefault(b => b.IsWinning);
+                if (prevWinningBid != null && prevWinningBid.BidderId == bidderId)
+                {
+                    return Result<PlaceBidResultDto>.Failure(Errors.Codes.Auction.BidTooLow, "You are already the highest bidder.");
+                }
+
+                if (prevWinningBid != null)
+                {
+                    prevWinningBid.MarkOutbid();
+                }
+
+                var newBid = AuctionBid.Create(dto.AuctionId, bidderId, dto.Amount);
+                newBid.MarkInsuranceLocked();
+
+                var sniped = (auction.EndTime - DateTime.UtcNow).TotalSeconds <= AuctionConstants.AntiSnipingTriggerSeconds;
+
+                var lockResult = await _walletCommandService.LockAuctionInsuranceAsync(bidderId, dto.AuctionId, auction.InsuranceDepositAmount, token);
+                if (lockResult.IsFailure)
+                {
+                    return Result<PlaceBidResultDto>.Failure(lockResult.ErrorCode!, lockResult.ErrorMessage!);
+                }
+
+                if (prevWinningBid != null)
+                {
+                    var releaseResult = await _walletCommandService.ReleaseAuctionInsuranceAsync(
+                        prevWinningBid.BidderId, dto.AuctionId, auction.InsuranceDepositAmount, token);
+                    if (releaseResult.IsFailure)
+                    {
+                        return Result<PlaceBidResultDto>.Failure(releaseResult.ErrorCode!, releaseResult.ErrorMessage!);
+                    }
+                }
+
+                auction.UpdateHighestBid(dto.Amount, bidderId);
+
+                if (sniped)
+                {
+                    auction.ExtendEndTime(AuctionConstants.AntiSnipingExtensionSeconds);
+                }
+
+                auction.Bids.Add(newBid);
+                await _unitOfWork.SaveChangesAsync(token);
+
+                await BroadcastAsync(auction, dto, newBid, prevWinningBid, sniped, token);
+
+                _logger.LogInformation("Bid placed — AuctionId: {AuctionId}, BidderId: {BidderId}, Amount: {Amount}",
+                    dto.AuctionId, bidderId, dto.Amount);
+
+                return Result<PlaceBidResultDto>.Success(new PlaceBidResultDto
+                {
+                    Bid = newBid.ToBidDto(),
+                    InsufficientFunds = false
+                });
+            }, ct);
         }
-
-        private async Task<Result<Auction>> ValidateGuardsAsync(
-            Guid bidderId, PlaceBidRequestDto dto, CancellationToken ct)
-        {
-            var auction = await _auctionRepository.GetByIdWithBidsAsync(dto.AuctionId, ct);
-            if (auction == null)
-                return Result<Auction>.Failure(
-                    Errors.Codes.Auction.NotFound, "Auction not found.");
-
-            if (!auction.CanBid())
-                return Result<Auction>.Failure(
-                    Errors.Codes.Auction.NotActive, "Auction is not accepting bids.");
-
-            if (bidderId == auction.HostId)
-                return Result<Auction>.Failure(
-                    Errors.Codes.Auction.CannotBidOwnAuction, "Host cannot bid on their own auction.");
-
-            var bidder = await _userRepository.GetByIdAsync(bidderId);
-            if (bidder == null)
-                return Result<Auction>.Failure(
-                    Errors.Codes.Common.UserNotFound, Errors.Messages.Common.UserNotFound);
-
-            if (bidder.KycStatus != SubmissionStatus.Approved)
-                return Result<Auction>.Failure(
-                    Errors.Codes.Common.UnauthorizedAction, "Bidder has not completed KYC verification.");
-
-            return Result<Auction>.Success(auction);
-        }
-
-        private static bool IsAntiSnipingTriggered(Auction auction) =>
-            (auction.EndTime - DateTime.UtcNow).TotalSeconds <= AuctionConstants.AntiSnipingTriggerSeconds;
 
         private async Task BroadcastAsync(
             Auction auction, PlaceBidRequestDto dto, AuctionBid newBid,
@@ -149,7 +172,9 @@ namespace Application.Services.Auctions.Handlers
             await _auctionHubService.BroadcastNewBidAsync(dto.AuctionId, dto.Amount, bidCount, newMinNextBid);
 
             if (sniped)
+            {
                 await _auctionHubService.BroadcastExtendedAsync(dto.AuctionId, auction.EndTime);
+            }
 
             if (prevWinningBid != null)
             {

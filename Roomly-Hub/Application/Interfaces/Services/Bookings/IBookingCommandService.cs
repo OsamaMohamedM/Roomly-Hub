@@ -14,5 +14,7 @@ namespace Application.Interfaces.Services.Bookings
         Task<Result> ApproveBookingRequestAsync(Guid hostId, Guid bookingId, CancellationToken cancellation = default);
 
         Task<Result> RejectBookingRequestAsync(Guid hostId, Guid bookingId, CancellationToken cancellation = default);
+
+        Task<Result> CreateFromAuctionAsync(Domain.Entities.Auctions.Auction auction, Guid winnerId, CancellationToken cancellation = default);
     }
 }

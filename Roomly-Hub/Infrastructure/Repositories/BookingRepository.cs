@@ -108,26 +108,16 @@ namespace Infrastructure.Repositories
             }
         }
 
-        public Task<bool> IsRoomAvailableAsync(Guid roomId, DateTime checkIn, DateTime checkOut, CancellationToken cancellation = default)
+        public async Task<bool> IsRoomAvailableAsync(Guid roomId, DateTime checkIn, DateTime checkOut, CancellationToken cancellation = default)
         {
-            return IsRoomAvailableAsync(roomId, checkIn, checkOut, null, cancellation);
+            var blockingStatuses = new[] { BookingStatus.Confirmed, BookingStatus.AwaitingPayment, BookingStatus.PendingHostApproval, BookingStatus.Completed };
+            return await IsRoomAvailableAsync(roomId, checkIn, checkOut, blockingStatuses, null, cancellation);
         }
 
         public async Task<bool> IsRoomAvailableAsync(Guid roomId, DateTime checkIn, DateTime checkOut, Guid? excludeBookingId = null, CancellationToken cancellation = default)
         {
-            var query = _context.Set<Booking>()
-                .Where(b => b.RoomId == roomId &&
-                            b.Status != BookingStatus.Cancelled &&
-                            !b.IsDeleted);
-
-            if (excludeBookingId.HasValue)
-            {
-                query = query.Where(b => b.Id != excludeBookingId.Value);
-            }
-
-            return !await query.AnyAsync(b =>
-                checkIn < b.CheckOutDate && checkOut > b.CheckInDate,
-                cancellation);
+            var blockingStatuses = new[] { BookingStatus.Confirmed, BookingStatus.AwaitingPayment, BookingStatus.PendingHostApproval, BookingStatus.Completed };
+            return await IsRoomAvailableAsync(roomId, checkIn, checkOut, blockingStatuses, excludeBookingId, cancellation);
         }
 
         public async Task<bool> IsRoomAvailableAsync(

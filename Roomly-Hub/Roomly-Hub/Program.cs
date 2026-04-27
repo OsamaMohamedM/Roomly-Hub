@@ -206,6 +206,7 @@ builder.Services.AddScoped<AuctionPaymentTimeoutJob>();
 builder.Services.AddScoped<AuctionEndingSoonJob>();
 builder.Services.AddScoped<IBackgroundJob, HangfireBackgroundJobScheduler>();
 builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
+builder.Services.AddScoped<Application.Services.Auctions.Workflows.CompleteAuctionPaymentWorkflow>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(options =>

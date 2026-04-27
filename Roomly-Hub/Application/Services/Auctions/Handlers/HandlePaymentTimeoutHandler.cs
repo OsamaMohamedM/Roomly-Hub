@@ -9,6 +9,7 @@ using Domain.enums.Auction;
 using Domain.enums.Notifications;
 using Domain.Interfaces.Repositories;
 using Microsoft.Extensions.Logging;
+using System.Data;
 
 namespace Application.Services.Auctions.Handlers
 {
@@ -44,46 +45,59 @@ namespace Application.Services.Auctions.Handlers
         {
             _logger.LogInformation("HandlePaymentTimeout started — AuctionId: {AuctionId}", auctionId);
 
-            var auction = await _auctionRepository.GetByIdWithBidsAsync(auctionId, ct);
-            if (auction == null)
-                return Result.Success();
-
-            if (auction.Status != AuctionStatus.Pending_Payment)
+            return await _unitOfWork.ExecuteInTransactionAsync(async token =>
             {
-                _logger.LogWarning("HandlePaymentTimeout — Auction {AuctionId} status is {Status}. Skipping.", auctionId, auction.Status);
-                return Result.Success();
-            }
+                var auction = await _auctionRepository.GetByIdWithBidsAsync(auctionId, token);
+                if (auction == null)
+                    return Result.Success();
 
-            var defaulterId = auction.WinnerId!.Value;
-            var defaulterBid = auction.Bids.FirstOrDefault(b => b.BidderId == defaulterId && b.IsWinning);
+                if (auction.Status != AuctionStatus.Pending_Payment)
+                {
+                    _logger.LogWarning("HandlePaymentTimeout — Auction {AuctionId} status is {Status}. Skipping.", auctionId, auction.Status);
+                    return Result.Success();
+                }
 
-            if (defaulterBid == null)
-            {
-                _logger.LogError("HandlePaymentTimeout — Could not find winning bid for defaulter {DefaulterId} on auction {AuctionId}.", defaulterId, auctionId);
-                return Result.Success(); // defensive — already handled
-            }
+                var defaulterId = auction.WinnerId!.Value;
+                var defaulterBid = auction.Bids.FirstOrDefault(b => b.BidderId == defaulterId && b.IsWinning);
 
-            await PenaliseDefaulterAsync(auction, defaulterId, defaulterBid, auctionId, ct);
+                if (defaulterBid == null)
+                {
+                    _logger.LogError("HandlePaymentTimeout — Could not find winning bid for defaulter {DefaulterId} on auction {AuctionId}.", defaulterId, auctionId);
+                    return Result.Success();
+                }
 
-            var nextEligible = await FindNextEligibleBidderAsync(auctionId, defaulterId, ct);
+                var penaliseResult = await PenaliseDefaulterAsync(auction, defaulterId, defaulterBid, auctionId, token);
+                if (penaliseResult.IsFailure)
+                    return penaliseResult;
 
-            if (nextEligible == null)
-                return await FullyDefaultAsync(auction, defaulterId, auctionId, ct);
+                var nextEligible = await FindNextEligibleBidderAsync(auctionId, defaulterId, token);
 
-            return await CascadeToNextAsync(auction, nextEligible, auctionId, ct);
+                if (nextEligible == null)
+                    return await FullyDefaultAsync(auction, defaulterId, auctionId, token);
+
+                return await CascadeToNextAsync(auction, nextEligible, auctionId, token);
+            }, ct, IsolationLevel.Serializable);
         }
 
-        private async Task PenaliseDefaulterAsync(
+        private async Task<Result> PenaliseDefaulterAsync(
             Auction auction, Guid defaulterId, AuctionBid defaulterBid, Guid auctionId, CancellationToken ct)
         {
+            Result walletResult;
             if (auction.CurrentCascadeDepth == 0)
-                await _walletCommandService.ForfeitAuctionInsuranceAsync(
+                walletResult = await _walletCommandService.ForfeitAuctionInsuranceAsync(
                     defaulterId, auctionId, auction.InsuranceDepositAmount, ct);
             else
-                await _walletCommandService.ReleaseAuctionInsuranceAsync(
+                walletResult = await _walletCommandService.ReleaseAuctionInsuranceAsync(
                     defaulterId, auctionId, auction.InsuranceDepositAmount, ct);
 
+            if (walletResult.IsFailure)
+            {
+                _logger.LogWarning("HandlePaymentTimeout — wallet operation failed for defaulter {DefaulterId}, auction {AuctionId}, code {ErrorCode}", defaulterId, auctionId, walletResult.ErrorCode);
+                return walletResult;
+            }
+
             defaulterBid.MarkForfeited();
+            return Result.Success();
         }
 
         private async Task<AuctionBid?> FindNextEligibleBidderAsync(Guid auctionId, Guid excludeBidderId, CancellationToken ct)

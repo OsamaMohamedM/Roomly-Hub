@@ -80,6 +80,8 @@ namespace Infrastructure.Persistence.Configurations
             builder.HasIndex(b => b.GuestId);
             builder.HasIndex(b => b.PaymentInvoiceId);
             builder.HasIndex(b => new { b.RoomId, b.CheckInDate, b.CheckOutDate });
+            builder.HasIndex(b => new { b.RoomId, b.Status, b.CheckInDate, b.CheckOutDate });
+            builder.HasIndex(b => new { b.Status, b.CreatedDate });
         }
     }
 }

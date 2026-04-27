@@ -33,6 +33,7 @@ namespace Infrastructure.Persistence.Configurations
                 .OnDelete(DeleteBehavior.NoAction);
 
             builder.HasIndex(b => new { b.AuctionId, b.Amount });
+            builder.HasIndex(b => new { b.AuctionId, b.Status, b.Amount });
             builder.HasIndex(b => b.BidderId);
         }
     }

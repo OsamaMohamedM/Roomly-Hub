@@ -67,16 +67,9 @@ namespace Application.Services.Bookings
         public Task<Result<BookingPaymentLinkResponseDto>> InitiatePaymentAsync(Guid guestId, Guid bookingId, InitiatePaymentDto initiatePaymentDto, CancellationToken cancellation = default)
             => _bookingPaymentFlowService.InitiatePaymentAsync(guestId, bookingId, initiatePaymentDto, cancellation);
 
-        /// <summary>
-        /// Creates a booking record from a completed auction.
-        /// Full implementation to be completed in future booking-auction integration task.
-        /// </summary>
-        public Task<Result> CreateFromAuctionAsync(Domain.Entities.Auctions.Auction auction, Guid winnerId, CancellationToken cancellation = default)
+        public async Task<Result> CreateFromAuctionAsync(Domain.Entities.Auctions.Auction auction, Guid winnerId, CancellationToken cancellation = default)
         {
-            // TODO: Implement full auction-to-booking creation logic.
-            // This should create a Booking entity using auction.CheckInDate, auction.CheckOutDate,
-            // auction.RoomId, winnerId, and mark it as paid via auction.
-            return Task.FromResult(Result.Success());
+            return await _bookingCommandService.CreateFromAuctionAsync(auction, winnerId, cancellation);
         }
     }
 }

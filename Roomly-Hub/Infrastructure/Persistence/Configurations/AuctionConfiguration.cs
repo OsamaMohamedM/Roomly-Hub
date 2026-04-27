@@ -20,6 +20,9 @@ namespace Infrastructure.Persistence.Configurations
             builder.Property(a => a.MinBidIncrementValue).HasPrecision(18, 4).IsRequired();
             builder.Property(a => a.InsuranceDepositRate).HasPrecision(18, 4).IsRequired();
             builder.Property(a => a.InsuranceDepositAmount).HasPrecision(18, 4).IsRequired();
+            builder.Property(a => a.EndTime).IsRequired();
+            builder.Property(a => a.CheckInDate).IsRequired();
+            builder.Property(a => a.CheckOutDate).IsRequired();
 
             builder.Property(a => a.Status)
                 .HasConversion<string>()
@@ -51,9 +54,15 @@ namespace Infrastructure.Persistence.Configurations
                 .HasForeignKey(b => b.AuctionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            builder.Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .ValueGeneratedOnAddOrUpdate()
+                .IsConcurrencyToken();
+
             builder.HasIndex(a => new { a.RoomId, a.Status });
             builder.HasIndex(a => new { a.HostId, a.Status });
             builder.HasIndex(a => new { a.Status, a.EndTime });
+            builder.HasIndex(a => new { a.RoomId, a.CheckInDate, a.CheckOutDate, a.Status });
         }
     }
 }

@@ -31,12 +31,15 @@ namespace Infrastructure.Persistence
             }
         }
 
-        public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default)
+        public async Task ExecuteInTransactionAsync(
+            Func<CancellationToken, Task> operation,
+            CancellationToken cancellationToken = default,
+            IsolationLevel isolationLevel = IsolationLevel.ReadCommitted)
         {
             var strategy = _dbContext.Database.CreateExecutionStrategy();
             await strategy.ExecuteAsync(async () =>
             {
-                await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync(isolationLevel, cancellationToken);
                 try
                 {
                     await operation(cancellationToken);
@@ -55,12 +58,15 @@ namespace Infrastructure.Persistence
             });
         }
 
-        public async Task<TResult> ExecuteInTransactionAsync<TResult>(Func<CancellationToken, Task<TResult>> operation, CancellationToken cancellationToken = default)
+        public async Task<TResult> ExecuteInTransactionAsync<TResult>(
+            Func<CancellationToken, Task<TResult>> operation,
+            CancellationToken cancellationToken = default,
+            IsolationLevel isolationLevel = IsolationLevel.ReadCommitted)
         {
             var strategy = _dbContext.Database.CreateExecutionStrategy();
             return await strategy.ExecuteAsync(async () =>
             {
-                await using var transaction = await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync(isolationLevel, cancellationToken);
                 try
                 {
                     var result = await operation(cancellationToken);

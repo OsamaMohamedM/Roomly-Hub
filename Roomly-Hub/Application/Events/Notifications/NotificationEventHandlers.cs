@@ -75,8 +75,9 @@ namespace Application.Events.Notifications
 
         public async Task Handle(BookingCancelledEvent notification, CancellationToken cancellationToken)
         {
-            await _notificationService.SendAsync(notification.HostId, NotificationType.BookingCancelled, "Booking cancelled", "A guest cancelled the booking.", $"/host/bookings/{notification.BookingId}", cancellationToken);
-            await _notificationService.SendAsync(notification.GuestId, NotificationType.BookingCancelled, "Booking cancelled", "Your booking has been cancelled.", $"/bookings/{notification.BookingId}", cancellationToken);
+            await Task.WhenAll(
+                _notificationService.SendAsync(notification.HostId, NotificationType.BookingCancelled, "Booking cancelled", "A guest cancelled the booking.", $"/host/bookings/{notification.BookingId}", cancellationToken),
+                _notificationService.SendAsync(notification.GuestId, NotificationType.BookingCancelled, "Booking cancelled", "Your booking has been cancelled.", $"/bookings/{notification.BookingId}", cancellationToken));
         }
     }
 

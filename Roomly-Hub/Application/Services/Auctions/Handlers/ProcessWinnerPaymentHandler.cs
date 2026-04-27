@@ -4,45 +4,41 @@ using Application.DTOs.Auctions;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Interfaces.Services.Wallet;
+using Application.Services.Auctions.Workflows;
 using Domain.enums.Auction;
+using Domain.enums.Booking;
 using Domain.enums.Notifications;
 using Domain.Interfaces.Repositories;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Auctions.Handlers
 {
-   
     public sealed class ProcessWinnerPaymentHandler
     {
         private readonly ILogger<ProcessWinnerPaymentHandler> _logger;
-        private readonly IUnitOfWork _unitOfWork;
         private readonly IAuctionRepository _auctionRepository;
         private readonly IWalletRepository _walletRepository;
-        private readonly IWalletCommandService _walletCommandService;
-        private readonly IBookingServices _bookingServices;
+        private readonly CompleteAuctionPaymentWorkflow _paymentWorkflow;
         private readonly INotificationService _notificationService;
 
         public ProcessWinnerPaymentHandler(
             ILogger<ProcessWinnerPaymentHandler> logger,
-            IUnitOfWork unitOfWork,
             IAuctionRepository auctionRepository,
             IWalletRepository walletRepository,
-            IWalletCommandService walletCommandService,
-            IBookingServices bookingServices,
+            CompleteAuctionPaymentWorkflow paymentWorkflow,
             INotificationService notificationService)
         {
             _logger = logger;
-            _unitOfWork = unitOfWork;
             _auctionRepository = auctionRepository;
             _walletRepository = walletRepository;
-            _walletCommandService = walletCommandService;
-            _bookingServices = bookingServices;
+            _paymentWorkflow = paymentWorkflow;
             _notificationService = notificationService;
         }
 
         public async Task<Result> HandleAsync(Guid winnerId, AuctionPaymentRequestDto dto, CancellationToken ct)
         {
-            _logger.LogInformation("ProcessWinnerPayment started — WinnerId: {WinnerId}, AuctionId: {AuctionId}", winnerId, dto.AuctionId);
+            _logger.LogInformation("ProcessWinnerPayment started — WinnerId: {WinnerId}, AuctionId: {AuctionId}, PaymentMethod: {PaymentMethod}",
+                winnerId, dto.AuctionId, dto.PaymentMethod);
 
             var auction = await _auctionRepository.GetByIdWithBidsAsync(dto.AuctionId, ct);
             if (auction == null)
@@ -61,20 +57,32 @@ namespace Application.Services.Auctions.Handlers
             if (winnerBid == null)
                 return Result.Failure(Errors.Codes.Auction.NotWinner, "Winner bid not found.");
 
-            var walletBalance = await _walletRepository.GetBalanceAsync(winnerId, ct);
-            if (walletBalance < winnerBid.Amount)
-                return Result.Failure(Errors.Codes.Wallet.InsufficientFunds, Errors.Messages.Wallet.InsufficientFunds);
-            await _walletCommandService.ChargeForAuctionAsync(winnerId, dto.AuctionId, winnerBid.Amount, ct);
-            await _walletCommandService.ReleaseAuctionInsuranceAsync(winnerId, dto.AuctionId, auction.InsuranceDepositAmount, ct);
-            winnerBid.MarkPaid();
-            auction.Complete();
-            await _bookingServices.CreateFromAuctionAsync(auction, winnerId, ct);
-            await _unitOfWork.SaveChangesAsync(ct);
+            if (dto.PaymentMethod == PaymentMethod.Wallet)
+            {
+                var walletBalance = await _walletRepository.GetBalanceAsync(winnerId, ct);
+                if (walletBalance < winnerBid.Amount)
+                    return Result.Failure(Errors.Codes.Wallet.InsufficientFunds, Errors.Messages.Wallet.InsufficientFunds);
+            }
 
-            await SendConfirmationNotificationsAsync(winnerId, winnerBid.Amount, ct);
+            var workflowResult = await _paymentWorkflow.ExecuteAsync(winnerId, auction, dto.PaymentMethod, ct);
+            if (workflowResult.IsFailure)
+            {
+                _logger.LogError("Payment workflow failed for auction {AuctionId}, WinnerId {WinnerId}: {ErrorCode} - {ErrorMessage}",
+                    dto.AuctionId, winnerId, workflowResult.ErrorCode, workflowResult.ErrorMessage);
+                return workflowResult;
+            }
 
-            _logger.LogInformation("Auction payment processed — AuctionId: {AuctionId}, WinnerId: {WinnerId}, Amount: {Amount}",
-                dto.AuctionId, winnerId, winnerBid.Amount);
+            if (dto.PaymentMethod == PaymentMethod.Wallet)
+            {
+                await SendConfirmationNotificationsAsync(winnerId, winnerBid.Amount, ct);
+            }
+            else
+            {
+                await SendExternalPaymentNotificationAsync(winnerId, winnerBid.Amount, ct);
+            }
+
+            _logger.LogInformation("Auction payment processed — AuctionId: {AuctionId}, WinnerId: {WinnerId}, Amount: {Amount}, PaymentMethod: {PaymentMethod}",
+                dto.AuctionId, winnerId, winnerBid.Amount, dto.PaymentMethod);
 
             return Result.Success();
         }
@@ -93,6 +101,16 @@ namespace Application.Services.Auctions.Handlers
                 NotificationType.BookingConfirmed,
                 "Booking Confirmed",
                 "Your booking from the auction has been created successfully.",
+                "/bookings", ct);
+        }
+
+        private async Task SendExternalPaymentNotificationAsync(Guid winnerId, decimal amount, CancellationToken ct)
+        {
+            await _notificationService.SendAsync(
+                winnerId,
+                NotificationType.BookingConfirmed,
+                "Payment Pending",
+                $"Your auction booking for {amount:F2} is ready. Please complete payment to finalize your booking.",
                 "/bookings", ct);
         }
     }
