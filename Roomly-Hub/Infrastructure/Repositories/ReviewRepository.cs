@@ -48,12 +48,42 @@ namespace Infrastructure.Repositories
                 .ToListAsync(ct);
         }
 
+        public async Task<(List<Review> Reviews, int TotalCount)> GetVisibleByRoomIdPagedAsync(Guid roomId, int page, int pageSize, CancellationToken ct)
+        {
+            var query = _context.Reviews
+                .Where(r => r.SubjectRoomId == roomId && r.Status == ReviewStatus.Visible && !r.IsDeleted)
+                .OrderByDescending(r => r.CreatedAt);
+
+            var total = await query.CountAsync(ct);
+            var reviews = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return (reviews, total);
+        }
+
         public async Task<List<Review>> GetBySubjectUserIdAsync(Guid userId, CancellationToken ct)
         {
             return await _context.Reviews
                 .Where(r => r.SubjectUserId == userId && !r.IsDeleted)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync(ct);
+        }
+
+        public async Task<(List<Review> Reviews, int TotalCount)> GetVisibleBySubjectUserIdPagedAsync(Guid userId, int page, int pageSize, CancellationToken ct)
+        {
+            var query = _context.Reviews
+                .Where(r => r.SubjectUserId == userId && r.Status == ReviewStatus.Visible && !r.IsDeleted)
+                .OrderByDescending(r => r.CreatedAt);
+
+            var total = await query.CountAsync(ct);
+            var reviews = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return (reviews, total);
         }
 
         public void Update(Review review)

@@ -8,6 +8,7 @@ using Roomly_Hub.Common;
 namespace Roomly_Hub.Controllers
 {
     [Route("api/kyc")]
+    [Route("api/v1/kyc")]
     [Authorize]
     public class KycController : ApiControllerBase
     {

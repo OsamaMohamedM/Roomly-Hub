@@ -9,5 +9,6 @@ namespace Application.DTOs
         public string Audience { get; set; } = string.Empty;
         public int AccessTokenExpirationMinutes { get; set; } = 60;
         public int RefreshTokenExpirationDays { get; set; } = 10;
+        public int AccountLockoutMinutes { get; set; } = 30;
     }
 }

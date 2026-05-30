@@ -4,6 +4,7 @@ using Application.Common.Mappers;
 using Application.DTOs.Booking;
 using Application.Interfaces.Services.Bookings;
 using Domain.Interfaces.Repositories;
+using Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace Application.Services.Bookings
@@ -11,15 +12,18 @@ namespace Application.Services.Bookings
     public class BookingQueryService : IBookingQueryService
     {
         private readonly IBookingRepository _bookingRepository;
+        private readonly IUserRepository _userRepository;
         private readonly IBookingMapper _bookingMapper;
         private readonly ILogger<BookingQueryService> _logger;
 
         public BookingQueryService(
             IBookingRepository bookingRepository,
+            IUserRepository userRepository,
             IBookingMapper bookingMapper,
             ILogger<BookingQueryService> logger)
         {
             _bookingRepository = bookingRepository;
+            _userRepository = userRepository;
             _bookingMapper = bookingMapper;
             _logger = logger;
         }
@@ -39,6 +43,27 @@ namespace Application.Services.Bookings
             if (booking == null)
             {
                 return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.BookingNotFound, $"{Errors.Messages.Booking.BookingNotFound} With This Id : {bookingId}");
+            }
+
+            return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));
+        }
+
+        public async Task<Result<BookingSummaryDto>> GetAuthorizedBookingSummaryAsync(Guid requesterId, Guid bookingId, CancellationToken cancellation = default)
+        {
+            var booking = await _bookingRepository.GetBookingByIdAsync(bookingId, cancellation);
+            if (booking == null)
+            {
+                return Result<BookingSummaryDto>.Failure(Errors.Codes.Booking.BookingNotFound, $"{Errors.Messages.Booking.BookingNotFound} With This Id : {bookingId}");
+            }
+
+            var requester = await _userRepository.GetByIdAsync(requesterId, cancellation);
+            var isAdmin = requester?.AdminRole is AdminRole.Moderator or AdminRole.SuperAdmin;
+            var isGuest = booking.GuestId == requesterId;
+            var isHost = booking.Room?.HostId == requesterId;
+
+            if (!isGuest && !isHost && !isAdmin)
+            {
+                return Result<BookingSummaryDto>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
             }
 
             return Result<BookingSummaryDto>.Success(_bookingMapper.ToSummaryDto(booking));

@@ -113,11 +113,6 @@ namespace Application.Services.Auctions.Handlers
                     return Result<PlaceBidResultDto>.Failure(Errors.Codes.Auction.BidTooLow, "You are already the highest bidder.");
                 }
 
-                if (prevWinningBid != null)
-                {
-                    prevWinningBid.MarkOutbid();
-                }
-
                 var newBid = AuctionBid.Create(dto.AuctionId, bidderId, dto.Amount);
                 newBid.MarkInsuranceLocked();
 
@@ -137,6 +132,11 @@ namespace Application.Services.Auctions.Handlers
                     {
                         return Result<PlaceBidResultDto>.Failure(releaseResult.ErrorCode!, releaseResult.ErrorMessage!);
                     }
+                }
+
+                if (prevWinningBid != null)
+                {
+                    prevWinningBid.MarkOutbid();
                 }
 
                 auction.UpdateHighestBid(dto.Amount, bidderId);

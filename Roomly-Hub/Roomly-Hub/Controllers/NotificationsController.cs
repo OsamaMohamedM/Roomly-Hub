@@ -8,6 +8,7 @@ namespace Roomly_Hub.Controllers
 {
     [Authorize]
     [Route("api/notifications")]
+    [Route("api/v1/notifications")]
     public class NotificationsController : ApiControllerBase
     {
         private readonly INotificationService _notificationService;

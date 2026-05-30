@@ -11,6 +11,7 @@ namespace Roomly_Hub.Controllers.Webhooks
 {
     [AllowAnonymous]
     [Route("api/webhooks/fawaterk")]
+    [Route("api/v1/webhooks/fawaterk")]
     public class FawaterkWebhookController : ApiControllerBase
     {
         private readonly IPaymentWebhookService _paymentWebhookService;
@@ -22,6 +23,7 @@ namespace Roomly_Hub.Controllers.Webhooks
         }
 
         [HttpPost]
+        [RequestSizeLimit(1024 * 1024)]
         public async Task<IActionResult> Handle(CancellationToken cancellationToken)
         {
             var rawBody = await ReadRawBodyAsync(cancellationToken);
@@ -30,7 +32,16 @@ namespace Roomly_Hub.Controllers.Webhooks
                 return BadRequest();
             }
 
-            var webhook = JsonConvert.DeserializeObject<WebHookModel>(rawBody);
+            WebHookModel? webhook;
+            try
+            {
+                webhook = JsonConvert.DeserializeObject<WebHookModel>(rawBody);
+            }
+            catch (JsonException)
+            {
+                return BadRequest();
+            }
+
             if (webhook == null)
             {
                 return BadRequest();
@@ -54,6 +65,7 @@ namespace Roomly_Hub.Controllers.Webhooks
         }
 
         [HttpPost("failed")]
+        [RequestSizeLimit(1024 * 1024)]
         public async Task<IActionResult> HandleFailed(CancellationToken cancellationToken)
         {
             var rawBody = await ReadRawBodyAsync(cancellationToken);
@@ -62,7 +74,16 @@ namespace Roomly_Hub.Controllers.Webhooks
                 return BadRequest();
             }
 
-            var webhook = JsonConvert.DeserializeObject<FaliledWebHook>(rawBody);
+            FaliledWebHook? webhook;
+            try
+            {
+                webhook = JsonConvert.DeserializeObject<FaliledWebHook>(rawBody);
+            }
+            catch (JsonException)
+            {
+                return BadRequest();
+            }
+
             if (webhook == null)
             {
                 return BadRequest();
@@ -83,6 +104,7 @@ namespace Roomly_Hub.Controllers.Webhooks
         }
 
         [HttpPost("cancel")]
+        [RequestSizeLimit(1024 * 1024)]
         public async Task<IActionResult> HandleCancel(CancellationToken cancellationToken)
         {
             var rawBody = await ReadRawBodyAsync(cancellationToken);
@@ -91,7 +113,16 @@ namespace Roomly_Hub.Controllers.Webhooks
                 return BadRequest();
             }
 
-            var cancelTransaction = JsonConvert.DeserializeObject<CancelTransactionModel>(rawBody);
+            CancelTransactionModel? cancelTransaction;
+            try
+            {
+                cancelTransaction = JsonConvert.DeserializeObject<CancelTransactionModel>(rawBody);
+            }
+            catch (JsonException)
+            {
+                return BadRequest();
+            }
+
             if (cancelTransaction == null)
             {
                 return BadRequest();
@@ -122,10 +153,33 @@ namespace Roomly_Hub.Controllers.Webhooks
             using var reader = new StreamReader(Request.Body, leaveOpen: true);
             var rawBody = await reader.ReadToEndAsync(cancellationToken);
             Request.Body.Position = 0;
+
+            if (string.IsNullOrWhiteSpace(rawBody))
+                return rawBody;
+
+            if (IsJsonRequest())
+            {
+                return rawBody;
+            }
+
+            if (!IsFormUrlEncodedRequest())
+                return null;
+
             var queryParams = QueryHelpers.ParseQuery(rawBody);
             var dict = queryParams.ToDictionary(k => k.Key, v => v.Value.ToString());
             var jsonString = JsonConvert.SerializeObject(dict);
             return jsonString;
+        }
+
+        private bool IsJsonRequest()
+        {
+            return Request.ContentType?.Contains("application/json", StringComparison.OrdinalIgnoreCase) == true ||
+                   Request.ContentType?.Contains("+json", StringComparison.OrdinalIgnoreCase) == true;
+        }
+
+        private bool IsFormUrlEncodedRequest()
+        {
+            return Request.ContentType?.Contains("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase) == true;
         }
     }
 }

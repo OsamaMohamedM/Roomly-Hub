@@ -9,6 +9,7 @@ namespace Roomly_Hub.Controllers.Rooms
 {
     [Authorize]
     [Route("api/rooms/moderation")]
+    [Route("api/v1/rooms/moderation")]
     public class RoomModerationController : ApiControllerBase
     {
         private readonly IRoomModerationService _roomModerationService;

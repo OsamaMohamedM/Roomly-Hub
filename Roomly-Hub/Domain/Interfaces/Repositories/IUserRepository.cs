@@ -19,6 +19,8 @@ namespace Domain.Interfaces.Repositories
 
         Task<User?> GetByEmailWithExternalLoginsAsync(Email email, CancellationToken cancellationToken = default);
 
+        Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default);
+
         Task AddAsync(User user, CancellationToken cancellationToken = default);
     }
 }

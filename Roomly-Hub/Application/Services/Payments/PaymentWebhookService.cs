@@ -7,6 +7,7 @@ using Application.Events.Notifications;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Domain.Entities.Payment;
+using Domain.Entities.Outbox;
 using Domain.enums.Booking;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
@@ -22,6 +23,7 @@ namespace Application.Services.Payments
         private readonly IPaymentService _paymentService;
         private readonly IBookingRepository _bookingRepository;
         private readonly IPaymentWebhookLogRepository _webhookLogRepository;
+        private readonly IOutboxMessageRepository _outboxMessageRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IValidator<WebHookModel> _webhookValidator;
         private readonly IPublisher _publisher;
@@ -31,6 +33,7 @@ namespace Application.Services.Payments
             IPaymentService paymentService,
             IBookingRepository bookingRepository,
             IPaymentWebhookLogRepository webhookLogRepository,
+            IOutboxMessageRepository outboxMessageRepository,
             IUnitOfWork unitOfWork,
             IValidator<WebHookModel> webhookValidator,
             IPublisher publisher,
@@ -39,6 +42,7 @@ namespace Application.Services.Payments
             _paymentService = paymentService;
             _bookingRepository = bookingRepository;
             _webhookLogRepository = webhookLogRepository;
+            _outboxMessageRepository = outboxMessageRepository;
             _unitOfWork = unitOfWork;
             _webhookValidator = webhookValidator;
             _publisher = publisher;
@@ -148,16 +152,10 @@ namespace Application.Services.Payments
 
                     latestBooking.MarkPaymentSucceeded(webhook.PaymentMethod);
                     await _bookingRepository.UpdateBookingAsync(latestBooking, token);
+                    await _outboxMessageRepository.AddAsync(
+                        OutboxMessage.Create(nameof(PaymentConfirmationEvent), JsonConvert.SerializeObject(new PaymentConfirmationEvent(latestBooking.Id, latestBooking.GuestId, webhook.InvoiceId.ToString()))),
+                        token);
                     await _unitOfWork.SaveChangesAsync(token);
-
-                    try
-                    {
-                        await _publisher.Publish(new PaymentConfirmationEvent(latestBooking.Id, latestBooking.GuestId, webhook.InvoiceId.ToString()), token);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to publish PaymentConfirmationEvent for booking {BookingId}", latestBooking.Id);
-                    }
 
                     webhookLog.MarkAsProcessed(true);
                     await _webhookLogRepository.UpdateAsync(webhookLog, cancellationToken);
@@ -202,16 +200,10 @@ namespace Application.Services.Payments
 
                     latestBooking.MarkPaymentSucceeded(latestBooking.PaymentMethod);
                     await _bookingRepository.UpdateBookingAsync(latestBooking, token);
+                    await _outboxMessageRepository.AddAsync(
+                        OutboxMessage.Create(nameof(PaymentConfirmationEvent), JsonConvert.SerializeObject(new PaymentConfirmationEvent(latestBooking.Id, latestBooking.GuestId, invoiceReference))),
+                        token);
                     await _unitOfWork.SaveChangesAsync(token);
-
-                    try
-                    {
-                        await _publisher.Publish(new PaymentConfirmationEvent(latestBooking.Id, latestBooking.GuestId, invoiceReference), token);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to publish PaymentConfirmationEvent for booking {BookingId}", latestBooking.Id);
-                    }
 
                     return Result.Success();
                 }, cancellationToken, IsolationLevel.ReadCommitted);

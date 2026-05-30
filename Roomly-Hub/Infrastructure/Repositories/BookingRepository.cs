@@ -48,6 +48,9 @@ namespace Infrastructure.Repositories
                             && b.Room.HostId == hostId
                             && !b.IsDeleted
                             && b.Status != BookingStatus.Cancelled
+                            && b.Status != BookingStatus.RejectedByHost
+                            && b.Status != BookingStatus.Superseded
+                            && b.Status != BookingStatus.Expired
                             && from < b.CheckOutDate
                             && to > b.CheckInDate)
                 .OrderBy(b => b.CheckInDate)
@@ -74,6 +77,9 @@ namespace Infrastructure.Repositories
                 .Where(b => b.RoomId == roomId
                             && !b.IsDeleted
                             && b.Status != BookingStatus.Cancelled
+                            && b.Status != BookingStatus.RejectedByHost
+                            && b.Status != BookingStatus.Superseded
+                            && b.Status != BookingStatus.Expired
                             && checkIn < b.CheckOutDate
                             && checkOut > b.CheckInDate);
 

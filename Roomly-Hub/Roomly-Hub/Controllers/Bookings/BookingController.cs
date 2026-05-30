@@ -10,6 +10,7 @@ namespace Roomly_Hub.Controllers.Bookings
 {
     [Authorize]
     [Route("api/bookings")]
+    [Route("api/v1/bookings")]
     public class BookingController : ApiControllerBase
     {
         private readonly IBookingServices _bookingServices;
@@ -49,14 +50,7 @@ namespace Roomly_Hub.Controllers.Bookings
             var result = await _bookingServices.InitiatePaymentAsync(userId.Value, bookingId, dto, cancellationToken);
             if (result.IsFailure)
             {
-                return result.ErrorCode switch
-                {
-                    var code when code == Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
-                    var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
-                    var code when code == Errors.Codes.Common.ValidationError => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Validation error")),
-                    var code when code == Errors.Codes.Booking.InvalidBookingState => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Invalid booking state")),
-                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
-                };
+                return ToActionResult(result);
             }
 
             return Ok(result.Value);
@@ -96,14 +90,7 @@ namespace Roomly_Hub.Controllers.Bookings
             var result = await _bookingServices.ApproveBookingRequestAsync(hostId.Value, bookingId, cancellationToken);
             if (result.IsFailure)
             {
-                return result.ErrorCode switch
-                {
-                    var code when code == Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
-                    var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
-                    var code when code == Errors.Codes.Booking.InvalidBookingState => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Invalid booking state")),
-                    var code when code == Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
-                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
-                };
+                return ToActionResult(result);
             }
 
             return Ok();
@@ -165,21 +152,18 @@ namespace Roomly_Hub.Controllers.Bookings
                 return Unauthorized();
             }
 
+            if (dto == null)
+            {
+                return BadRequest("Request body is required.");
+            }
+
             dto.BookingId = bookingId;
             dto.UserId = userId.Value;
 
             var result = await _bookingServices.UpdateBookingAsync(dto, cancellationToken);
             if (result.IsFailure)
             {
-                return result.ErrorCode switch
-                {
-                    var code when code == Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
-                    var code when code == Errors.Codes.Room.RoomNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Room not found")),
-                    var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
-                    var code when code == Errors.Codes.Booking.RoomNotAvailable => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Room not available")),
-                    var code when code == Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
-                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
-                };
+                return ToActionResult(result);
             }
 
             return Ok(result.Value);
@@ -203,13 +187,7 @@ namespace Roomly_Hub.Controllers.Bookings
             var result = await _bookingServices.CancelBookingAsync(dto, cancellationToken);
             if (result.IsFailure)
             {
-                return result.ErrorCode switch
-                {
-                    var code when code == Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
-                    var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
-                    var code when code == Errors.Codes.Booking.CancellationNotAllowed => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Cancellation not allowed")),
-                    _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
-                };
+                return ToActionResult(result);
             }
 
             return Ok(result.Value);
@@ -236,12 +214,19 @@ namespace Roomly_Hub.Controllers.Bookings
         [HttpGet("{bookingId:guid}")]
         public async Task<IActionResult> GetBookingSummary(Guid bookingId, CancellationToken cancellationToken)
         {
-            var result = await _bookingServices.GetBookingSummaryAsync(bookingId, cancellationToken);
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _bookingServices.GetAuthorizedBookingSummaryAsync(userId.Value, bookingId, cancellationToken);
             if (result.IsFailure)
             {
                 return result.ErrorCode switch
                 {
                     var code when code == Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
+                    var code when code == Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
                 };
             }

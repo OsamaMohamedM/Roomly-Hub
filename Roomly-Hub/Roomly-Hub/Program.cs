@@ -15,6 +15,7 @@ using Application.Services.BackGroundJobs;
 using Application.Services.Bookings;
 using Application.Services.Notifications;
 using Application.Services.Notifications.Strategies;
+using Application.Services.Outbox;
 using Application.Services.Payments;
 using Application.Services.Reviews;
 using Application.Services.RoomCRUD;
@@ -24,6 +25,7 @@ using Domain.Interfaces.Repositories;
 using FluentValidation;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Infrastructure.Health;
 using Infrastructure.Jobs;
 using Infrastructure.Persistence;
 using Infrastructure.Repositories;
@@ -108,6 +110,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     };
 });
 builder.Services.AddHttpClient();
+builder.Services.AddHttpClient(FawaterakPaymentService.HttpClientName, client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
@@ -150,7 +156,13 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
 builder.Services.Configure<GoogleSettings>(builder.Configuration.GetSection(GoogleSettings.SectionName));
 builder.Services.Configure<FawaterakOptions>(builder.Configuration.GetSection("Fawaterak"));
+var handlers = typeof(AuctionCommandService).Assembly.GetTypes()
+    .Where(t => t.Name.EndsWith("Handler") && !t.IsAbstract && t.IsClass);
 
+foreach (var handler in handlers)
+{
+    builder.Services.AddScoped(handler);
+}
 builder.Services.AddScoped<IAuctionHubService, AuctionHubService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IHasher, BCryptHasher>();
@@ -169,6 +181,9 @@ builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IPaymentService, FawaterakPaymentService>();
 builder.Services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
+builder.Services.AddScoped<IPaymentReconciliationService, PaymentReconciliationService>();
+builder.Services.AddScoped<IOutboxDispatcher, OutboxDispatcher>();
+builder.Services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
 
 builder.Services.AddScoped<INotificationChannelStrategy, InAppNotificationStrategy>();
 builder.Services.AddScoped<INotificationChannelStrategy, EmailNotificationStrategy>();
@@ -193,6 +208,7 @@ builder.Services.AddScoped<IBookingCommandService, BookingCommandService>();
 builder.Services.AddScoped<IBookingQueryService, BookingQueryService>();
 builder.Services.AddScoped<IBookingPaymentFlowService, BookingPaymentFlowService>();
 builder.Services.AddScoped<IBookingServices, BookingServices>();
+builder.Services.AddScoped<CancelBookingSaga>();
 builder.Services.AddScoped<IReviewCommandService, ReviewCommandService>();
 builder.Services.AddScoped<IReviewQueryService, ReviewQueryService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -209,6 +225,8 @@ builder.Services.AddScoped<IBookingTimeoutService, BookingTimeoutService>();
 builder.Services.AddScoped<Application.Services.Auctions.Workflows.CompleteAuctionPaymentWorkflow>();
 
 builder.Services.AddOpenApi();
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database");
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -245,6 +263,7 @@ app.UseAuthentication();
 app.UseHangfireDashboard("/hangfire");
 app.UseAuthorization();
 app.MapControllers();
+app.MapHealthChecks("/health");
 app.MapHub<AuctionHub>("/hubs/auction");
 
 RecurringJob.AddOrUpdate<IBookingTimeoutService>(
@@ -261,5 +280,10 @@ RecurringJob.AddOrUpdate<IPaymentReconciliationService>(
     "payment-reconciliation-daily",
     job => job.ReconcilePendingPaymentsAsync(),
     Cron.Daily);
+
+RecurringJob.AddOrUpdate<IOutboxDispatcher>(
+    "outbox-dispatch-minutely",
+    job => job.DispatchPendingAsync(CancellationToken.None),
+    Cron.Minutely);
 
 app.Run();

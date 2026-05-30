@@ -8,6 +8,7 @@ namespace Roomly_Hub.Controllers.Payments
 {
     [Authorize]
     [Route("api/payments")]
+    [Route("api/v1/payments")]
     public class PaymentController : ApiControllerBase
     {
         private readonly IPaymentService _paymentService;
@@ -28,7 +29,7 @@ namespace Roomly_Hub.Controllers.Payments
         public async Task<IActionResult> GetPaymentMethods(CancellationToken cancellationToken)
         {
             _logger.LogInformation("Loading payment methods");
-            var methods = await _paymentService.GetPaymentMethods();
+            var methods = await _paymentService.GetPaymentMethods(cancellationToken);
             if (methods == null)
             {
                 _logger.LogWarning("Payment methods could not be loaded from provider");
@@ -108,12 +109,19 @@ namespace Roomly_Hub.Controllers.Payments
         [HttpPost("bookings/{bookingId:guid}/refund")]
         public async Task<IActionResult> RefundBookingPayment(Guid bookingId, CancellationToken cancellationToken)
         {
-            var result = await _bookingServices.MarkBookingAsRefundedAsync(bookingId, cancellationToken);
+            var userId = GetUserId();
+            if (userId == null)
+            {
+                return Unauthorized();
+            }
+
+            var result = await _bookingServices.MarkBookingAsRefundedAsync(userId.Value, bookingId, cancellationToken);
             if (result.IsFailure)
             {
                 return result.ErrorCode switch
                 {
                     var code when code == Application.Common.Constants.Errors.Codes.Booking.BookingNotFound => NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound, "Booking not found")),
+                    var code when code == Application.Common.Constants.Errors.Codes.Common.UnauthorizedAction => StatusCode(StatusCodes.Status403Forbidden, CreateProblemDetails(result, StatusCodes.Status403Forbidden, "Unauthorized action")),
                     var code when code == Application.Common.Constants.Errors.Codes.Booking.InvalidBookingState => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Invalid booking state")),
                     var code when code == Application.Common.Constants.Errors.Codes.Booking.ConcurrencyConflict => Conflict(CreateProblemDetails(result, StatusCodes.Status409Conflict, "Concurrency conflict")),
                     _ => BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest, "Request failed"))
@@ -122,6 +130,5 @@ namespace Roomly_Hub.Controllers.Payments
 
             return Ok(result.Value);
         }
-
     }
 }

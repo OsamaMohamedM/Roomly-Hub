@@ -5,12 +5,14 @@ using Application.Common.Mappers;
 using Application.Common.Results;
 using Application.DTOs.Booking;
 using Application.DTOs.Payment;
+using Application.DTOs.Payment.FawaterkRequest;
 using Application.Interfaces.BackgroundJobs;
 using Application.Interfaces.Persistence;
 using Application.Interfaces.Services;
 using Application.Interfaces.Services.Bookings;
 using Application.Interfaces.Services.Wallet;
 using Domain.enums.Booking;
+using Domain.Enums;
 using Domain.Interfaces.Repositories;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
@@ -22,6 +24,7 @@ namespace Application.Services.Bookings
         private const int DefaultHostPayoutDelayHours = 48;
 
         private readonly IBookingRepository _bookingRepository;
+        private readonly IUserRepository _userRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IPaymentService _paymentService;
         private readonly IBookingPaymentRequestFactory _bookingPaymentRequestFactory;
@@ -34,6 +37,7 @@ namespace Application.Services.Bookings
 
         public BookingPaymentFlowService(
             IBookingRepository bookingRepository,
+            IUserRepository userRepository,
             IUnitOfWork unitOfWork,
             IPaymentService paymentService,
             IBookingPaymentRequestFactory bookingPaymentRequestFactory,
@@ -45,6 +49,7 @@ namespace Application.Services.Bookings
             ILogger<BookingPaymentFlowService> logger)
         {
             _bookingRepository = bookingRepository;
+            _userRepository = userRepository;
             _unitOfWork = unitOfWork;
             _paymentService = paymentService;
             _bookingPaymentRequestFactory = bookingPaymentRequestFactory;
@@ -197,6 +202,17 @@ namespace Application.Services.Bookings
             }
         }
 
+        public async Task<Result<BookingSummaryDto>> MarkBookingAsRefundedAsync(Guid requesterId, Guid bookingId, CancellationToken cancellation = default)
+        {
+            var requester = await _userRepository.GetByIdAsync(requesterId, cancellation);
+            if (requester?.AdminRole is not (AdminRole.Moderator or AdminRole.SuperAdmin))
+            {
+                return Result<BookingSummaryDto>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Room.UnauthorizedAction);
+            }
+
+            return await MarkBookingAsRefundedAsync(bookingId, cancellation);
+        }
+
         public async Task<Result<EInvoiceResponseData>> CreateBookingPaymentInvoiceAsync(Guid guestId, CreateBookingPaymentRequestDto requestDto, CancellationToken cancellation = default)
         {
             _logger.LogInformation("Starting payment invoice creation for booking {BookingId} and guest {GuestId}", requestDto.BookingId, guestId);
@@ -236,21 +252,11 @@ namespace Application.Services.Bookings
                 return Result<EInvoiceResponseData>.Failure(Errors.Codes.Booking.InvalidBookingState, "Booking is already paid.");
             }
 
-            var paymentRequest = _bookingPaymentRequestFactory.Create(booking, requestDto.PaymentMethodId, requestDto.RedirectionUrls);
+            var invoiceResult = await CreateAndPersistInvoiceAsync(booking, requestDto.PaymentMethodId, requestDto.RedirectionUrls, cancellation);
+            if (invoiceResult.IsFailure)
+                return Result<EInvoiceResponseData>.Failure(invoiceResult.ErrorCode!, invoiceResult.ErrorMessage!);
 
-            var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
-            if (response == null)
-            {
-                _logger.LogError("Payment invoice creation failed from provider for booking {BookingId}", requestDto.BookingId);
-                return Result<EInvoiceResponseData>.Failure(Errors.Codes.Booking.PaymentFailed, Errors.Messages.Booking.PaymentFailed);
-            }
-
-            if (!string.IsNullOrWhiteSpace(response.InvoiceId) && !string.IsNullOrWhiteSpace(response.InvoiceKey))
-            {
-                booking.SetPaymentInvoice(response.InvoiceId, response.InvoiceKey);
-                await _bookingRepository.UpdateBookingAsync(booking, cancellation);
-                await _unitOfWork.SaveChangesAsync(cancellation);
-            }
+            var response = invoiceResult.Value!;
 
             _logger.LogInformation("Payment invoice created for booking {BookingId} with invoice key {InvoiceKey}", requestDto.BookingId, response.InvoiceKey);
             return Result<EInvoiceResponseData>.Success(response);
@@ -276,16 +282,11 @@ namespace Application.Services.Bookings
                 return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
             }
 
-            var paymentRequest = _bookingPaymentRequestFactory.Create(booking, null, null);
-            var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
-            if (response == null || string.IsNullOrWhiteSpace(response.Url) || string.IsNullOrWhiteSpace(response.InvoiceId) || string.IsNullOrWhiteSpace(response.InvoiceKey))
-            {
-                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.PaymentFailed, Errors.Messages.Booking.PaymentFailed);
-            }
+            var invoiceResult = await CreateAndPersistInvoiceAsync(booking, null, null, cancellation);
+            if (invoiceResult.IsFailure)
+                return Result<BookingPaymentLinkResponseDto>.Failure(invoiceResult.ErrorCode!, invoiceResult.ErrorMessage!);
 
-            booking.SetPaymentInvoice(response.InvoiceId, response.InvoiceKey);
-            await _bookingRepository.UpdateBookingAsync(booking, cancellation);
-            await _unitOfWork.SaveChangesAsync(cancellation);
+            var response = invoiceResult.Value!;
 
             return Result<BookingPaymentLinkResponseDto>.Success(new BookingPaymentLinkResponseDto
             {
@@ -332,16 +333,11 @@ namespace Application.Services.Bookings
                 return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.InvalidBookingState, "Booking is already paid.");
             }
 
-            var paymentRequest = _bookingPaymentRequestFactory.Create(booking, initiatePaymentDto.PaymentMethodId, initiatePaymentDto.RedirectionUrls);
-            var response = await _paymentService.CreateEInvoiceAsync(paymentRequest);
-            if (response == null || string.IsNullOrWhiteSpace(response.Url) || string.IsNullOrWhiteSpace(response.InvoiceId) || string.IsNullOrWhiteSpace(response.InvoiceKey))
-            {
-                return Result<BookingPaymentLinkResponseDto>.Failure(Errors.Codes.Booking.PaymentFailed, Errors.Messages.Booking.PaymentFailed);
-            }
+            var invoiceResult = await CreateAndPersistInvoiceAsync(booking, initiatePaymentDto.PaymentMethodId, initiatePaymentDto.RedirectionUrls, cancellation);
+            if (invoiceResult.IsFailure)
+                return Result<BookingPaymentLinkResponseDto>.Failure(invoiceResult.ErrorCode!, invoiceResult.ErrorMessage!);
 
-            booking.SetPaymentInvoice(response.InvoiceId, response.InvoiceKey);
-            await _bookingRepository.UpdateBookingAsync(booking, cancellation);
-            await _unitOfWork.SaveChangesAsync(cancellation);
+            var response = invoiceResult.Value!;
 
             return Result<BookingPaymentLinkResponseDto>.Success(new BookingPaymentLinkResponseDto
             {
@@ -349,6 +345,27 @@ namespace Application.Services.Bookings
                 Status = booking.Status,
                 PaymentUrl = response.Url
             });
+        }
+
+        private async Task<Result<EInvoiceResponseData>> CreateAndPersistInvoiceAsync(
+            Domain.Entities.Booking.Booking booking,
+            int? paymentMethodId,
+            EInvoiceRedirectionUrls? redirectionUrls,
+            CancellationToken cancellation)
+        {
+            var paymentRequest = _bookingPaymentRequestFactory.Create(booking, paymentMethodId, redirectionUrls);
+            var response = await _paymentService.CreateEInvoiceAsync(paymentRequest, cancellation);
+            if (response == null || string.IsNullOrWhiteSpace(response.InvoiceId) || string.IsNullOrWhiteSpace(response.InvoiceKey))
+            {
+                _logger.LogError("Payment invoice creation failed from provider for booking {BookingId}", booking.Id);
+                return Result<EInvoiceResponseData>.Failure(Errors.Codes.Booking.PaymentFailed, Errors.Messages.Booking.PaymentFailed);
+            }
+
+            booking.SetPaymentInvoice(response.InvoiceId, response.InvoiceKey);
+            await _bookingRepository.UpdateBookingAsync(booking, cancellation);
+            await _unitOfWork.SaveChangesAsync(cancellation);
+
+            return Result<EInvoiceResponseData>.Success(response);
         }
     }
 }

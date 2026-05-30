@@ -8,6 +8,7 @@ using Roomly_Hub.Common;
 namespace Roomly_Hub.Controllers
 {
     [Route("api/[controller]/v1.0")]
+    [Route("api/v1/auth")]
     public class AuthController : ApiControllerBase
     {
         private readonly IAuthService _authService;

@@ -7,11 +7,11 @@ namespace Application.Interfaces.Services
 {
     public interface IPaymentService
     {
-        Task<EInvoiceResponseData?> CreateEInvoiceAsync(EInvoiceRequestModel eInvoice);
+        Task<EInvoiceResponseData?> CreateEInvoiceAsync(EInvoiceRequestModel eInvoice, CancellationToken cancellationToken = default);
 
-        Task<IList<PaymentMethoodModel>?> GetPaymentMethods();
+        Task<IList<PaymentMethoodModel>?> GetPaymentMethods(CancellationToken cancellationToken = default);
 
-        Task<BasePaymentResponse?> GeneralPay(EInvoiceRequestModel invoice);
+        Task<BasePaymentResponse?> GeneralPay(EInvoiceRequestModel invoice, CancellationToken cancellationToken = default);
 
         bool VerifyWebhook(WebHookModel webHook);
 
@@ -19,6 +19,6 @@ namespace Application.Interfaces.Services
 
         bool VerifyApiKeyTransaction(string apiKey);
 
-        Task<PaymentStatus> CheckInvoiceStatusAsync(string invoiceReference);
+        Task<PaymentStatus> CheckInvoiceStatusAsync(string invoiceReference, CancellationToken cancellationToken = default);
     }
 }

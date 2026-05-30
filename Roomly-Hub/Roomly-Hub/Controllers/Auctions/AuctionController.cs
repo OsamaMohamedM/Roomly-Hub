@@ -8,6 +8,7 @@ using Roomly_Hub.Common;
 namespace Roomly_Hub.Controllers.Auctions
 {
     [Route("api/auctions")]
+    [Route("api/v1/auctions")]
     public class AuctionController : ApiControllerBase
     {
         private readonly IAuctionCommandService _auctionCommandService;

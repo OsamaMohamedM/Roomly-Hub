@@ -7,6 +7,8 @@ namespace Application.Interfaces.Services.Bookings
     {
         Task<Result<BookingSummaryDto>> GetBookingSummaryAsync(Guid bookingId, CancellationToken cancellation = default);
 
+        Task<Result<BookingSummaryDto>> GetAuthorizedBookingSummaryAsync(Guid requesterId, Guid bookingId, CancellationToken cancellation = default);
+
         Task<Result<IEnumerable<BookingSummaryDto>>> GetBookingsByGuestAsync(Guid guestId, CancellationToken cancellation = default);
 
         Task<Result<IEnumerable<HostBookingRequestDto>>> GetPendingRequestsForHostAsync(Guid hostId, CancellationToken cancellation = default);

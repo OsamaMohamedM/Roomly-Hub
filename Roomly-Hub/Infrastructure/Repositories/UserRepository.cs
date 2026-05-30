@@ -71,6 +71,18 @@ namespace Infrastructure.Repositories
                 .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted, cancellationToken);
         }
 
+        public async Task<Dictionary<Guid, string>> GetNamesByIdsAsync(IEnumerable<Guid> ids, CancellationToken cancellationToken = default)
+        {
+            var distinctIds = ids.Distinct().ToList();
+            if (distinctIds.Count == 0)
+                return new Dictionary<Guid, string>();
+
+            return await _context.Users
+                .Where(u => distinctIds.Contains(u.Id) && !u.IsDeleted)
+                .Select(u => new { u.Id, u.Name })
+                .ToDictionaryAsync(x => x.Id, x => x.Name, cancellationToken);
+        }
+
         public async Task AddAsync(User user, CancellationToken cancellationToken = default)
         {
             await _context.Users.AddAsync(user, cancellationToken);

@@ -9,6 +9,7 @@ using Roomly_Hub.Common;
 namespace Roomly_Hub.Controllers.Rooms
 {
     [Route("api/rooms")]
+    [Route("api/v1/rooms")]
     [Authorize]
     public class RoomController : ApiControllerBase
     {

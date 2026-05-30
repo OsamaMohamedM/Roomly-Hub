@@ -9,6 +9,7 @@ namespace Roomly_Hub.Controllers.Wallet
 {
     [Authorize]
     [Route("api/wallet")]
+    [Route("api/v1/wallet")]
     public class WalletController : ApiControllerBase
     {
         private readonly IWalletCommandService _walletCommandService;

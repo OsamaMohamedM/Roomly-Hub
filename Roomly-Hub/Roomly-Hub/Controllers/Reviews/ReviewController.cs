@@ -8,6 +8,7 @@ using Roomly_Hub.Common;
 namespace Roomly_Hub.Controllers.Reviews
 {
     [Route("api/reviews")]
+    [Route("api/v1/reviews")]
     public class ReviewController : ApiControllerBase
     {
         private readonly IReviewCommandService _reviewCommandService;
@@ -54,10 +55,10 @@ namespace Roomly_Hub.Controllers.Reviews
 
         [AllowAnonymous]
         [HttpGet("rooms/{roomId:guid}")]
-        public async Task<IActionResult> GetRoomReviews(Guid roomId, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetRoomReviews(Guid roomId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Get room reviews API called for room {RoomId}", roomId);
-            var result = await _reviewQueryService.GetRoomReviewsAsync(roomId, cancellationToken);
+            var result = await _reviewQueryService.GetRoomReviewsAsync(roomId, page, pageSize, cancellationToken);
             if (result.IsFailure)
             {
                 _logger.LogWarning("Get room reviews failed for room {RoomId}. ErrorCode: {ErrorCode}", roomId, result.ErrorCode);
@@ -69,10 +70,10 @@ namespace Roomly_Hub.Controllers.Reviews
 
         [AllowAnonymous]
         [HttpGet("users/{userId:guid}")]
-        public async Task<IActionResult> GetUserReviews(Guid userId, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetUserReviews(Guid userId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Get user reviews API called for user {UserId}", userId);
-            var result = await _reviewQueryService.GetUserReviewsAsync(userId, cancellationToken);
+            var result = await _reviewQueryService.GetUserReviewsAsync(userId, page, pageSize, cancellationToken);
             if (result.IsFailure)
             {
                 _logger.LogWarning("Get user reviews failed for user {UserId}. ErrorCode: {ErrorCode}", userId, result.ErrorCode);

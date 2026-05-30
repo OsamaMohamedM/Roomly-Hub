@@ -107,13 +107,14 @@ namespace Domain.Entities
             MarkUpdated();
         }
 
-        public void IncrementLoginFailCount()
+        public void IncrementLoginFailCount(TimeSpan? lockoutDuration = null)
         {
             LoginFailCount++;
 
             if (LoginFailCount >= MaxLoginFailAttempts)
             {
                 IsLocked = true;
+                LockoutTokenExpiresAt = DateTime.UtcNow.Add(lockoutDuration ?? TimeSpan.FromMinutes(30));
             }
 
             MarkUpdated();

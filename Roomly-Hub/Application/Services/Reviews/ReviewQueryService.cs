@@ -1,4 +1,5 @@
 using Application.Common.Mappers;
+using Application.Common.Pagination;
 using Application.Common.Results;
 using Application.DTOs.Reviews;
 using Application.Interfaces.Services.Reviews;
@@ -37,6 +38,17 @@ namespace Application.Services.Reviews
             return Result<List<ReviewResponseDto>>.Success(dtos);
         }
 
+        public async Task<Result<PagedResult<ReviewResponseDto>>> GetRoomReviewsAsync(Guid roomId, int page, int pageSize, CancellationToken ct)
+        {
+            var normalizedPage = page <= 0 ? 1 : page;
+            var normalizedPageSize = pageSize <= 0 ? 10 : Math.Min(pageSize, 100);
+            _logger.LogInformation("Loading paged room reviews for room {RoomId}", roomId);
+
+            var (reviews, total) = await _reviewRepository.GetVisibleByRoomIdPagedAsync(roomId, normalizedPage, normalizedPageSize, ct);
+            var dtos = await MapAsync(reviews, ct);
+            return Result<PagedResult<ReviewResponseDto>>.Success(new PagedResult<ReviewResponseDto>(dtos, total, normalizedPage, normalizedPageSize));
+        }
+
         public async Task<Result<List<ReviewResponseDto>>> GetUserReviewsAsync(Guid userId, CancellationToken ct)
         {
             _logger.LogInformation("Loading user reviews for user {UserId}", userId);
@@ -47,14 +59,26 @@ namespace Application.Services.Reviews
             return Result<List<ReviewResponseDto>>.Success(dtos);
         }
 
+        public async Task<Result<PagedResult<ReviewResponseDto>>> GetUserReviewsAsync(Guid userId, int page, int pageSize, CancellationToken ct)
+        {
+            var normalizedPage = page <= 0 ? 1 : page;
+            var normalizedPageSize = pageSize <= 0 ? 10 : Math.Min(pageSize, 100);
+            _logger.LogInformation("Loading paged user reviews for user {UserId}", userId);
+
+            var (reviews, total) = await _reviewRepository.GetVisibleBySubjectUserIdPagedAsync(userId, normalizedPage, normalizedPageSize, ct);
+            var dtos = await MapAsync(reviews, ct);
+            return Result<PagedResult<ReviewResponseDto>>.Success(new PagedResult<ReviewResponseDto>(dtos, total, normalizedPage, normalizedPageSize));
+        }
+
         private async Task<List<ReviewResponseDto>> MapAsync(List<Domain.Entities.Reviews.Review> reviews, CancellationToken ct)
         {
             var result = new List<ReviewResponseDto>(reviews.Count);
+            var reviewerNames = await _userRepository.GetNamesByIdsAsync(reviews.Select(r => r.ReviewerId), ct);
 
             foreach (var review in reviews.OrderByDescending(r => r.CreatedAt))
             {
-                var reviewer = await _userRepository.GetByIdAsync(review.ReviewerId, ct);
-                result.Add(_reviewMapper.ToResponseDto(review, reviewer?.Name ?? string.Empty));
+                reviewerNames.TryGetValue(review.ReviewerId, out var reviewerName);
+                result.Add(_reviewMapper.ToResponseDto(review, reviewerName ?? string.Empty));
             }
 
             return result;

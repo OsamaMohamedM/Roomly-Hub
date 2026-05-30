@@ -14,6 +14,8 @@ namespace Application.Interfaces.Services
 
         public Task<Result<BookingSummaryDto>> GetBookingSummaryAsync(Guid bookingId, CancellationToken cancellation = default);
 
+        public Task<Result<BookingSummaryDto>> GetAuthorizedBookingSummaryAsync(Guid requesterId, Guid bookingId, CancellationToken cancellation = default);
+
         public Task<Result<IEnumerable<BookingSummaryDto>>> GetBookingsByGuestAsync(Guid guestId, CancellationToken cancellation = default);
 
         public Task<Result<IEnumerable<HostBookingRequestDto>>> GetPendingRequestsForHostAsync(Guid hostId, CancellationToken cancellation = default);
@@ -27,6 +29,8 @@ namespace Application.Interfaces.Services
         public Task<Result<BookingSummaryDto>> MarkBookingAsPaidByInvoiceIdAsync(string invoiceId, CancellationToken cancellation = default);
 
         public Task<Result<BookingSummaryDto>> MarkBookingAsRefundedAsync(Guid bookingId, CancellationToken cancellation = default);
+
+        public Task<Result<BookingSummaryDto>> MarkBookingAsRefundedAsync(Guid requesterId, Guid bookingId, CancellationToken cancellation = default);
 
         public Task<Result<EInvoiceResponseData>> CreateBookingPaymentInvoiceAsync(Guid guestId, CreateBookingPaymentRequestDto requestDto, CancellationToken cancellation = default);
 

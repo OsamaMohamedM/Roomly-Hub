@@ -24,7 +24,7 @@ namespace Application.Services.Bookings
                 {
                     new()
                     {
-                        Name = $"Booking Room: {booking.Room.Title}",
+                        Name = $"Booking Room: {booking.Room?.Title ?? booking.RoomId.ToString()}",
                         Price = booking.TotalPrice.ToString("F2",CultureInfo.InvariantCulture),
                         Quantity = "1"
                     }

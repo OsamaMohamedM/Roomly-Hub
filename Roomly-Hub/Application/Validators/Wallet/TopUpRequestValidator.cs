@@ -16,6 +16,10 @@ namespace Application.Validators.Wallet
                 .NotEmpty()
                 .Must(method => Enum.TryParse<PaymentMethod>(method, true, out var parsed) && parsed != PaymentMethod.Wallet)
                 .WithMessage("PaymentMethod is invalid for top-up");
+
+            RuleFor(x => x.ExternalRef)
+                .NotEmpty()
+                .WithMessage("ExternalRef is required so wallet credit can be matched to a verified payment settlement.");
         }
     }
 }

@@ -189,6 +189,7 @@ namespace Application.Services.RoomCRUD
 
         public async Task<Result<PagedResult<RoomSummaryDto>>> SearchRoomsAsync(RoomFilters filters, CancellationToken cancellationToken = default)
         {
+            filters ??= new RoomFilters();
             var (rooms, totalCount) = await _roomRepository.SearchRoomsAsync(filters, cancellationToken);
 
             var dtos = rooms.Select(r => _roomMapper.ToSummaryDto(r)).ToList();

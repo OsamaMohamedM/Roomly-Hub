@@ -12,6 +12,8 @@ namespace Application.Interfaces.Services.Bookings
 
         Task<Result<BookingSummaryDto>> MarkBookingAsRefundedAsync(Guid bookingId, CancellationToken cancellation = default);
 
+        Task<Result<BookingSummaryDto>> MarkBookingAsRefundedAsync(Guid requesterId, Guid bookingId, CancellationToken cancellation = default);
+
         Task<Result<EInvoiceResponseData>> CreateBookingPaymentInvoiceAsync(Guid guestId, CreateBookingPaymentRequestDto requestDto, CancellationToken cancellation = default);
 
         Task<Result<BookingPaymentLinkResponseDto>> GetBookingPaymentLinkAsync(Guid guestId, Guid bookingId, CancellationToken cancellation = default);

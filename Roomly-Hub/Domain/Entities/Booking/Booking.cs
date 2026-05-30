@@ -25,8 +25,8 @@ namespace Domain.Entities.Booking
         public string? PaymentInvoiceKey { get; private set; }
         public DateTime? CancelledAt { get; private set; }
         public Guid? CancelledBy { get; private set; }
-        public User User { get; private set; }
-        public Room Room { get; private set; }
+        public User? User { get; private set; }
+        public Room? Room { get; private set; }
 
         public static Booking CreateBooking(
             Guid guestId,
@@ -73,6 +73,28 @@ namespace Domain.Entities.Booking
             Status = BookingStatus.Cancelled;
             CancelledAt = DateTime.UtcNow;
             CancelledBy = cancelledBy;
+        }
+
+        public void Supersede(Guid supersededBy)
+        {
+            if (Status != BookingStatus.PendingHostApproval)
+                throw new InvalidOperationException("Only pending host approval bookings can be superseded.");
+
+            Status = BookingStatus.Superseded;
+            CancelledAt = DateTime.UtcNow;
+            CancelledBy = supersededBy;
+            MarkUpdated();
+        }
+
+        public void RejectByHost(Guid hostId)
+        {
+            if (Status != BookingStatus.PendingHostApproval)
+                throw new InvalidOperationException("Only pending host approval bookings can be rejected.");
+
+            Status = BookingStatus.RejectedByHost;
+            CancelledAt = DateTime.UtcNow;
+            CancelledBy = hostId;
+            MarkUpdated();
         }
 
         public void UpdateBooking(DateTime newCheckIn, DateTime newCheckOut)

@@ -8,6 +8,8 @@
         PendingHostApproval,
         Confirmed,
         Cancelled,
+        RejectedByHost,
+        Superseded,
         Completed,
         Expired
     }

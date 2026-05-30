@@ -29,9 +29,8 @@ namespace Application.Services.Auctions
             if (page <= 0 || pageSize <= 0)
                 return Result<PagedResult<AuctionSummaryDto>>.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
 
-            var auctions = await _auctionRepository.GetActiveAsync(ct);
-            var total = auctions.Count;
-            var paged = auctions.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+            var total = await _auctionRepository.CountActiveAsync(ct);
+            var paged = await _auctionRepository.GetActivePagedAsync(page, pageSize, ct);
             var items = new List<AuctionSummaryDto>(paged.Count);
 
             foreach (var auction in paged)

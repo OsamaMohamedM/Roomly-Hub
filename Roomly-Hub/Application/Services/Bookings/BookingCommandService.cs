@@ -29,6 +29,7 @@ namespace Application.Services.Bookings
         private readonly IPublisher _publisher;
         private readonly IWalletCommandService _walletCommandService;
         private readonly ILogger<BookingCommandService> _logger;
+        private readonly CancelBookingSaga _cancelBookingSaga;
 
         public BookingCommandService(
             IBookingRepository bookingRepository,
@@ -40,7 +41,8 @@ namespace Application.Services.Bookings
             IBookingMapper bookingMapper,
             IPublisher publisher,
             IWalletCommandService walletCommandService,
-            ILogger<BookingCommandService> logger)
+            ILogger<BookingCommandService> logger,
+            CancelBookingSaga cancelBookingSaga)
         {
             _bookingRepository = bookingRepository;
             _unitOfWork = unitOfWork;
@@ -52,72 +54,12 @@ namespace Application.Services.Bookings
             _publisher = publisher;
             _walletCommandService = walletCommandService;
             _logger = logger;
+            _cancelBookingSaga = cancelBookingSaga;
         }
 
         public async Task<Result<string>> CancelBookingAsync(BookingCancelRequestDto bookingCancelRequestDto, CancellationToken cancellation = default)
         {
-            _logger.LogInformation("Starting booking cancellation for booking {BookingId}", bookingCancelRequestDto.BookingId);
-            var validationResult = await _bookingCancelValidator.ValidateAsync(bookingCancelRequestDto, cancellation);
-            if (!validationResult.IsValid)
-            {
-                _logger.LogWarning("Booking cancellation validation failed for booking {BookingId}", bookingCancelRequestDto.BookingId);
-                return Result<string>.Failure(
-                    Errors.Codes.Common.ValidationError,
-                    Errors.Messages.Common.RequestValidationFailed,
-                    ValidationHelper.ToErrorDictionary(validationResult));
-            }
-
-            var booking = await _bookingRepository.GetBookingByIdAsync(bookingCancelRequestDto.BookingId, cancellation);
-            if (booking == null)
-            {
-                _logger.LogWarning("Booking cancellation failed. Booking {BookingId} not found", bookingCancelRequestDto.BookingId);
-                return Result<string>.Failure(Errors.Codes.Booking.BookingNotFound, $"{Errors.Messages.Booking.BookingNotFound} With This Id : {bookingCancelRequestDto.BookingId}");
-            }
-
-            if (bookingCancelRequestDto.GuestId == null || booking.GuestId != bookingCancelRequestDto.GuestId)
-            {
-                _logger.LogWarning("Booking cancellation unauthorized for booking {BookingId}", bookingCancelRequestDto.BookingId);
-                return Result<string>.Failure(Errors.Codes.Common.UnauthorizedAction, Errors.Messages.Common.UserNotFound);
-            }
-
-            if (booking.Status == BookingStatus.Cancelled)
-            {
-                _logger.LogWarning("Booking {BookingId} is already cancelled", bookingCancelRequestDto.BookingId);
-                return Result<string>.Failure(Errors.Codes.Booking.CancellationNotAllowed, Errors.Messages.Booking.CancellationNotAllowed);
-            }
-
-            booking.CancelBooking(bookingCancelRequestDto.GuestId.Value);
-            await _bookingRepository.UpdateBookingAsync(booking, cancellation);
-            await _unitOfWork.SaveChangesAsync(cancellation);
-
-            if (booking.PaymentStatus == PaymentStatus.Paid && booking.PaymentMethod == PaymentMethod.Wallet)
-            {
-                try
-                {
-                    var refundResult = await _walletCommandService.RefundBookingAsync(booking.GuestId, booking.Id, booking.TotalPrice, cancellation);
-                    if (refundResult.IsFailure)
-                        _logger.LogWarning("Wallet refund failed for booking {BookingId}. ErrorCode: {ErrorCode}", booking.Id, refundResult.ErrorCode);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Wallet refund threw exception for booking {BookingId}", booking.Id);
-                }
-            }
-
-            if (booking.Room != null)
-            {
-                try
-                {
-                    await _publisher.Publish(new BookingCancelledEvent(booking.Id, booking.GuestId, booking.Room.HostId, booking.RoomId), cancellation);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to publish BookingCancelledEvent for booking {BookingId}", booking.Id);
-                }
-            }
-
-            _logger.LogInformation("Booking {BookingId} cancelled successfully", bookingCancelRequestDto.BookingId);
-            return Result<string>.Success("Booking cancelled successfully.");
+            return await _cancelBookingSaga.ExecuteAsync(bookingCancelRequestDto, cancellation);
         }
 
         public async Task<Result<CreateBookingResponseDto>> CreateBookingAsync(Guid guestId, CreateBookingDto createBookingDto, CancellationToken cancellation = default)
@@ -356,7 +298,7 @@ namespace Application.Services.Bookings
 
                     foreach (var competing in competingRequests)
                     {
-                        competing.CancelBooking(hostId);
+                        competing.Supersede(hostId);
                         await _bookingRepository.UpdateBookingAsync(competing, token);
                     }
 
@@ -402,7 +344,7 @@ namespace Application.Services.Bookings
                 return Result.Failure(Errors.Codes.Booking.InvalidBookingState, Errors.Messages.Booking.InvalidBookingState);
             }
 
-            booking.CancelBooking(hostId);
+            booking.RejectByHost(hostId);
             await _bookingRepository.UpdateBookingAsync(booking, cancellation);
             await _unitOfWork.SaveChangesAsync(cancellation);
 
@@ -437,11 +379,11 @@ namespace Application.Services.Bookings
             var checkInDateTime = auction.CheckInDate.ToDateTime(TimeOnly.MinValue);
             var checkOutDateTime = auction.CheckOutDate.ToDateTime(TimeOnly.MinValue);
 
-            var existingBooking = await _bookingRepository.GetBookingsByGuestIdAsync(winnerId, cancellation)
-                .ContinueWith(t => t.Result.FirstOrDefault(b =>
-                    b.RoomId == auction.RoomId &&
-                    b.CheckInDate == checkInDateTime &&
-                    b.CheckOutDate == checkOutDateTime), cancellation);
+            var guestBookings = await _bookingRepository.GetBookingsByGuestIdAsync(winnerId, cancellation);
+            var existingBooking = guestBookings.FirstOrDefault(b =>
+                b.RoomId == auction.RoomId &&
+                b.CheckInDate == checkInDateTime &&
+                b.CheckOutDate == checkOutDateTime);
 
             if (existingBooking != null)
             {
@@ -467,8 +409,6 @@ namespace Application.Services.Bookings
                 bookingMode: BookingMode.InstantBook,
                 sourceStatus: SourceStatus.Auction,
                 cancellationPolicy: CancellationPolicy.FreeCancellation);
-
-            booking.MarkAsPaid();
 
             await _bookingRepository.AddBookingAsync(booking, cancellation);
 

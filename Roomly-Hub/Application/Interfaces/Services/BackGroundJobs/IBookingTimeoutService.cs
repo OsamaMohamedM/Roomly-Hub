@@ -1,4 +1,4 @@
-﻿namespace Application.Services.BackGroundJobs
+namespace Application.Services.BackGroundJobs
 {
     public interface IBookingTimeoutService
     {

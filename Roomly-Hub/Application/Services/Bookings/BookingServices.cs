@@ -40,6 +40,9 @@ namespace Application.Services.Bookings
         public Task<Result<BookingSummaryDto>> GetBookingSummaryAsync(Guid bookingId, CancellationToken cancellation = default)
             => _bookingQueryService.GetBookingSummaryAsync(bookingId, cancellation);
 
+        public Task<Result<BookingSummaryDto>> GetAuthorizedBookingSummaryAsync(Guid requesterId, Guid bookingId, CancellationToken cancellation = default)
+            => _bookingQueryService.GetAuthorizedBookingSummaryAsync(requesterId, bookingId, cancellation);
+
         public Task<Result<BookingSummaryDto>> UpdateBookingAsync(BookingRequestDto bookingRequestDto, CancellationToken cancellation = default)
             => _bookingCommandService.UpdateBookingAsync(bookingRequestDto, cancellation);
 
@@ -57,6 +60,9 @@ namespace Application.Services.Bookings
 
         public Task<Result<BookingSummaryDto>> MarkBookingAsRefundedAsync(Guid bookingId, CancellationToken cancellation = default)
             => _bookingPaymentFlowService.MarkBookingAsRefundedAsync(bookingId, cancellation);
+
+        public Task<Result<BookingSummaryDto>> MarkBookingAsRefundedAsync(Guid requesterId, Guid bookingId, CancellationToken cancellation = default)
+            => _bookingPaymentFlowService.MarkBookingAsRefundedAsync(requesterId, bookingId, cancellation);
 
         public Task<Result<IEnumerable<HostBookingRequestDto>>> GetHostRoomBookingsAsync(Guid hostId, Guid roomId, DateTime from, DateTime to, CancellationToken cancellation = default)
             => _bookingQueryService.GetHostRoomBookingsAsync(hostId, roomId, from, to, cancellation);

@@ -71,7 +71,7 @@ namespace Application.Services.Wallet
                 return Result.Failure(Errors.Codes.Common.ValidationError, Errors.Messages.Common.RequestValidationFailed);
             }
 
-            var idempotencyKey = $"topup-{userId}-{dto.Amount}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+            var idempotencyKey = $"topup-pending-{dto.ExternalRef}";
             if (await _walletRepository.TransactionExistsAsync(idempotencyKey, ct))
             {
                 _logger.LogInformation("Wallet top-up idempotent hit for user {UserId}. Key: {IdempotencyKey}", userId, idempotencyKey);
@@ -93,14 +93,11 @@ namespace Application.Services.Wallet
 
             await _unitOfWork.ExecuteInTransactionAsync(async token =>
             {
-                wallet.Credit(dto.Amount);
-                _walletRepository.Update(wallet);
-
                 var tx = WalletTransaction.Create(
                     wallet.Id,
                     dto.Amount,
-                    TransactionType.TopUp,
-                    "Wallet top-up",
+                    TransactionType.PendingTopUp,
+                    "Pending wallet top-up awaiting verified settlement",
                     idempotencyKey,
                     paymentMethod: paymentMethod,
                     externalRef: dto.ExternalRef);

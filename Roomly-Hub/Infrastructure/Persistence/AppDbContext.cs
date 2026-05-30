@@ -2,6 +2,7 @@
 using Domain.Entities.Auctions;
 using Domain.Entities.Booking;
 using Domain.Entities.Notifications;
+using Domain.Entities.Outbox;
 using Domain.Entities.Payment;
 using Domain.Entities.Reviews;
 using Domain.Entities.Rooms;
@@ -56,5 +57,6 @@ namespace Infrastructure.Persistence
         public DbSet<WalletTransaction> WalletTransactions { get; set; }
         public DbSet<Auction> Auctions { get; set; }
         public DbSet<AuctionBid> AuctionBids { get; set; }
+        public DbSet<OutboxMessage> OutboxMessages { get; set; }
     }
 }

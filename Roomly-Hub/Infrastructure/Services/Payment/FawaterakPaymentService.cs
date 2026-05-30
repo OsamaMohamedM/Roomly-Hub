@@ -17,6 +17,8 @@ namespace Infrastructure.Services.Payment
 {
     public class FawaterakPaymentService : IPaymentService
     {
+        public const string HttpClientName = "Fawaterak";
+
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly ILogger<FawaterakPaymentService> _logger;
         private readonly string ApiKey;
@@ -36,7 +38,7 @@ namespace Infrastructure.Services.Payment
             ProviderKey = cfg.ProviderKey;
         }
 
-        public async Task<EInvoiceResponseData?> CreateEInvoiceAsync(EInvoiceRequestModel eInvoice)
+        public async Task<EInvoiceResponseData?> CreateEInvoiceAsync(EInvoiceRequestModel eInvoice, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -47,15 +49,15 @@ namespace Infrastructure.Services.Payment
 
                 _logger.LogInformation("Creating Fawaterak invoice for payment method {PaymentMethodId}", eInvoice.PaymentMethodId);
 
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient(HttpClientName);
                 var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/createInvoiceLink");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
                 request.Content = new StringContent(JsonConvert.SerializeObject(eInvoice), Encoding.UTF8, "application/json");
-                var response = await client.SendAsync(request);
+                var response = await client.SendAsync(request, cancellationToken);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var responseContent = await response.Content.ReadAsStringAsync();
+                    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                     var wrappedResponse = JsonConvert.DeserializeObject<EInvoiceResponseModel>(responseContent);
                     var eInvoiceResponse = wrappedResponse?.Data;
 
@@ -86,22 +88,22 @@ namespace Infrastructure.Services.Payment
             }
         }
 
-        public async Task<IList<PaymentMethoodModel>?> GetPaymentMethods()
+        public async Task<IList<PaymentMethoodModel>?> GetPaymentMethods(CancellationToken cancellationToken = default)
         {
             try
             {
                 _logger.LogInformation("Loading payment methods from Fawaterak");
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient(HttpClientName);
                 var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/getPaymentmethods");
 
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
                 request.Content = new StringContent(string.Empty, Encoding.UTF8, "application/json");
 
-                var result = await client.SendAsync(request);
+                var result = await client.SendAsync(request, cancellationToken);
 
                 if (result.IsSuccessStatusCode)
                 {
-                    var responseContent = await result.Content.ReadAsStringAsync();
+                    var responseContent = await result.Content.ReadAsStringAsync(cancellationToken);
                     var paymentMethodsResponse = JsonConvert.DeserializeObject<PaymentMethodsResponse>(responseContent);
 
                     if (paymentMethodsResponse?.Data != null)
@@ -155,7 +157,7 @@ namespace Infrastructure.Services.Payment
             }
         }
 
-        public async Task<BasePaymentResponse?> GeneralPay(EInvoiceRequestModel invoice)
+        public async Task<BasePaymentResponse?> GeneralPay(EInvoiceRequestModel invoice, CancellationToken cancellationToken = default)
         {
             try
             {
@@ -166,16 +168,16 @@ namespace Infrastructure.Services.Payment
 
                 _logger.LogInformation("Processing general pay for payment method {PaymentMethodId}", invoice.PaymentMethodId);
 
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient(HttpClientName);
                 var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/invoiceInitPay");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
                 request.Content = new StringContent(JsonConvert.SerializeObject(invoice), Encoding.UTF8, "application/json");
 
-                var response = await client.SendAsync(request);
+                var response = await client.SendAsync(request, cancellationToken);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var responseContent = await response.Content.ReadAsStringAsync();
+                    var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                     var method = await GetPaymentMethod(invoice.PaymentMethodId.Value);
 
                     _logger.LogInformation("Fawaterak payment initialized successfully for method {Method}", method);
@@ -227,10 +229,13 @@ namespace Infrastructure.Services.Payment
 
         private static void EnsureRedirectionUrls(EInvoiceRequestModel invoice)
         {
-            invoice.RedirectionUrls ??= new EInvoiceRedirectionUrls();
-            invoice.RedirectionUrls.OnSuccess ??= "https://example.com/success";
-            invoice.RedirectionUrls.OnFailure ??= "https://example.com/fail";
-            invoice.RedirectionUrls.OnPending ??= "https://example.com/pending";
+            if (invoice.RedirectionUrls == null ||
+                string.IsNullOrWhiteSpace(invoice.RedirectionUrls.OnSuccess) ||
+                string.IsNullOrWhiteSpace(invoice.RedirectionUrls.OnFailure) ||
+                string.IsNullOrWhiteSpace(invoice.RedirectionUrls.OnPending))
+            {
+                throw new InvalidOperationException("Payment redirection URLs are required.");
+            }
         }
 
         private static void EnsureCartItems(EInvoiceRequestModel invoice)
@@ -337,7 +342,9 @@ namespace Infrastructure.Services.Payment
                     cancelTransaction.ReferenceId,
                     cancelTransaction.PaymentMethod);
 
-                var isValid = generatedHashKey == cancelTransaction.HashKey;
+                var generatedBytes = Encoding.UTF8.GetBytes(generatedHashKey.ToLowerInvariant());
+                var receivedBytes = Encoding.UTF8.GetBytes(cancelTransaction.HashKey.ToLowerInvariant());
+                var isValid = generatedBytes.Length == receivedBytes.Length && CryptographicOperations.FixedTimeEquals(generatedBytes, receivedBytes);
                 if (!isValid)
                 {
                     _logger.LogWarning("Cancellation signature mismatch for reference {ReferenceId}", cancelTransaction.ReferenceId);
@@ -381,34 +388,35 @@ namespace Infrastructure.Services.Payment
             return BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
         }
 
-        public async Task<PaymentStatus> CheckInvoiceStatusAsync(string invoiceReference)
+        public async Task<PaymentStatus> CheckInvoiceStatusAsync(string invoiceReference, CancellationToken cancellationToken = default)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(invoiceReference))
                     return PaymentStatus.Failed;
 
-                var client = _httpClientFactory.CreateClient();
+                var client = _httpClientFactory.CreateClient(HttpClientName);
                 var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/getInvoiceData/{invoiceReference}");
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
-                var response = await client.SendAsync(request);
+                var response = await client.SendAsync(request, cancellationToken);
                 if (!response.IsSuccessStatusCode)
-                    return PaymentStatus.Failed;
+                    return PaymentStatus.Pending;
 
-                var responseContent = await response.Content.ReadAsStringAsync();
+                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
                 var invoiceStatusResponse = JsonConvert.DeserializeObject<InvoiceStatusResponse>(responseContent);
 
                 if (invoiceStatusResponse == null || !string.Equals(invoiceStatusResponse.Status, "success", StringComparison.OrdinalIgnoreCase) || invoiceStatusResponse.Data == null)
-                    return PaymentStatus.Failed;
+                    return PaymentStatus.Pending;
 
                 return invoiceStatusResponse.Data.Paid == 1
                     ? PaymentStatus.Paid
                     : PaymentStatus.Pending;
             }
-            catch
+            catch (Exception ex)
             {
-                return PaymentStatus.Failed;
+                _logger.LogError(ex, "Failed to check Fawaterak invoice status for reference {InvoiceReference}.", invoiceReference);
+                return PaymentStatus.Pending;
             }
         }
     }

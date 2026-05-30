@@ -105,7 +105,7 @@ namespace Infrastructure.Repositories
 
         public async Task<(List<Room>, int)> SearchRoomsAsync(RoomFilters query, CancellationToken cancellationToken = default)
         {
-            var baseQuery = ApplyFilters(BaseRoomsQuery(), query);
+            var baseQuery = ApplyFilters(BaseRoomsSummaryQuery(), query);
 
             var totalCount = await baseQuery.CountAsync(cancellationToken);
 
@@ -130,7 +130,7 @@ namespace Infrastructure.Repositories
 
         public async Task<List<Room>> GetRoomsWithFiltersAsync(RoomFilters roomFilters, CancellationToken cancellationToken = default)
         {
-            return await ApplyFilters(BaseRoomsQuery(), roomFilters)
+            return await ApplyFilters(BaseRoomsSummaryQuery(), roomFilters)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync(cancellationToken);
         }
@@ -171,6 +171,14 @@ namespace Infrastructure.Repositories
                 .Include(r => r.Photos)
                 .Include(r => r.Amenities)
                 .Include(r => r.Availabilities)
+                .Where(r => !r.IsDeleted && r.Status == RoomListingStatus.Published);
+        }
+
+        private IQueryable<Room> BaseRoomsSummaryQuery()
+        {
+            return _context.Rooms
+                .Include(r => r.Photos)
+                .Include(r => r.Amenities)
                 .Where(r => !r.IsDeleted && r.Status == RoomListingStatus.Published);
         }
 

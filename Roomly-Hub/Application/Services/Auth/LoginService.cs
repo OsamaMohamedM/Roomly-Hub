@@ -73,7 +73,7 @@ namespace Application.Services
             {
                 if (!user.IsLocked)
                 {
-                    user.IncrementLoginFailCount();
+                    user.IncrementLoginFailCount(TimeSpan.FromMinutes(_jwtSettings.AccountLockoutMinutes));
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                     if (user.IsLocked)

@@ -40,11 +40,27 @@ namespace Infrastructure.Repositories
                 .CountAsync(a => a.HostId == hostId && a.Status == AuctionStatus.Active && !a.IsDeleted, ct);
         }
 
+        public async Task<int> CountActiveAsync(CancellationToken ct)
+        {
+            return await _context.Set<Auction>()
+                .CountAsync(a => a.Status == AuctionStatus.Active && a.EndTime > DateTime.UtcNow && !a.IsDeleted, ct);
+        }
+
         public async Task<List<Auction>> GetActiveAsync(CancellationToken ct)
         {
             return await _context.Set<Auction>()
                 .Where(a => a.Status == AuctionStatus.Active && a.EndTime > DateTime.UtcNow && !a.IsDeleted)
                 .OrderBy(a => a.EndTime)
+                .ToListAsync(ct);
+        }
+
+        public async Task<List<Auction>> GetActivePagedAsync(int page, int pageSize, CancellationToken ct)
+        {
+            return await _context.Set<Auction>()
+                .Where(a => a.Status == AuctionStatus.Active && a.EndTime > DateTime.UtcNow && !a.IsDeleted)
+                .OrderBy(a => a.EndTime)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync(ct);
         }
 
