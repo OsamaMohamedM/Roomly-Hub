@@ -264,6 +264,18 @@ This provides:
 - atomic updates across aggregates,
 - and easier testability.
 
+### Outbox Pattern for Payment Events
+
+Payment-confirmed domain events are persisted through an outbox table before being dispatched.
+
+This improves reliability for payment webhook processing by keeping booking payment state changes and follow-up event publication in the same persistence flow. Pending outbox messages are dispatched by a Hangfire job and can be retried safely.
+
+### Saga-Style Booking Cancellation
+
+Booking cancellation now routes through a dedicated cancellation workflow service.
+
+The cancellation flow coordinates booking state changes, wallet refund behavior, and notification publishing so wallet-backed cancellations do not finalize state before the refund path is handled.
+
 ### Webhook Logging and Idempotency
 
 Payment webhooks are persisted through a dedicated `PaymentWebhookLog` model and repository.
@@ -277,7 +289,7 @@ This supports:
 
 ---
 
-## 4. Technology Stack
+## 5. Technology Stack
 
 ### Backend
 
@@ -318,7 +330,7 @@ This supports:
 
 ---
 
-## 5. Webhook & Payment Lifecycle
+## 6. Webhook & Payment Lifecycle
 
 Roomly-Hub uses a secure payment flow centered on invoice creation and webhook reconciliation.
 
@@ -348,6 +360,8 @@ The webhook controller receives gateway callbacks for:
 
 Each webhook is verified using gateway-specific hash logic before any state change is allowed.
 
+Cancellation webhook signatures are compared with fixed-time hash comparison to avoid timing-based leakage.
+
 ### 6. Idempotency
 
 Webhook processing is idempotent.
@@ -374,11 +388,11 @@ The booking remains payable so the guest can retry payment later.
 
 ### 9. Refund Flow
 
-Refunds are handled separately through the payment/booking service layer and are only allowed when the booking is already in a paid state.
+Refunds are handled separately through the payment/booking service layer and are only allowed when the booking is already in a paid state. Refund endpoints also require elevated admin authorization.
 
 ---
 
-## 6. Reviews and Notifications APIs
+## 7. Reviews and Notifications APIs
 
 ### Reviews Endpoints
 
@@ -386,10 +400,10 @@ Refunds are handled separately through the payment/booking service layer and are
   Submits review using current user id from JWT claim.
 
 - `GET /api/reviews/rooms/{roomId}` (`AllowAnonymous`)
-  Returns visible reviews for a room.
+  Returns visible paginated reviews for a room.
 
 - `GET /api/reviews/users/{userId}` (`AllowAnonymous`)
-  Returns visible reviews for a user.
+  Returns visible paginated reviews for a user.
 
 - `POST /api/reviews/{reviewId}/flag` (`Authorized`)
   Flags review (moderator/superadmin only).
@@ -421,7 +435,7 @@ Refunds are handled separately through the payment/booking service layer and are
 
 ---
 
-## 7. Project Standards
+## 8. Project Standards
 
 Roomly-Hub follows a set of explicit engineering standards that shape how code is written, organized, and evolved.
 
@@ -536,7 +550,7 @@ The current codebase uses the following implementation technologies and librarie
 
 ---
 
-## 8. Getting Started
+## 9. Getting Started
 
 ### Prerequisites
 
